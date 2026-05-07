@@ -5,10 +5,12 @@ import {
 } from "@google/generative-ai";
 
 // 1. USE A NEW API KEY (Since the old one was exposed)
-const genAI = new GoogleGenerativeAI("");
+const genAI = new GoogleGenerativeAI("AIzaSyDKrDLvSB8-k0HDd4pUmBPyvfinXnzxO_g");
 
 // 2. USE THE MODERN MODEL ALIAS
-const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+const model = genAI.getGenerativeModel({
+  model: "gemini-2.0-flash-lite-001",
+});
 
 const safetySettings = [
   {
@@ -33,11 +35,10 @@ export const convertToRomaji = async (japaneseText) => {
   if (!japaneseText || japaneseText === "No lyrics found.") return "";
 
   try {
-    const prompt = `Perform a linguistic transliteration of the following Japanese text into Romaji script. 
-    Transliterate character by character. 
-    Do not add commentary. 
-    Output only the Romaji transliteration:
-    
+    const prompt = `Task: Convert the provided UTF-8 Japanese characters into Latin-script phonetic Romaji.
+    Requirement: Character-by-character mapping only. 
+    Do not treat this as a creative work. 
+    Input:
     ${japaneseText}`;
 
     const result = await model.generateContent(prompt);

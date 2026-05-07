@@ -15,6 +15,7 @@ export default function SearchScreen() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<
     {
+      romanizedLyrics: null;
       id: string | number;
       trackName: string;
       artistName: string;
@@ -99,6 +100,8 @@ export default function SearchScreen() {
                     artist: item.artistName,
                     title: item.trackName,
                     lyrics: item.plainLyrics,
+                    // Use the API's romaji if it exists, otherwise it stays null
+                    preComputedRomaji: item.romanizedLyrics || null,
                   },
                 })
               }

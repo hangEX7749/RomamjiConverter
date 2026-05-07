@@ -12,12 +12,12 @@ import { convertToRomaji } from "../utils/romaji";
 import { saveSong } from "../utils/storage";
 
 export default function LyricsScreen() {
-  const { artist, title, lyrics } = useLocalSearchParams();
+  const { artist, title, lyrics, preComputedRomaji } = useLocalSearchParams();
   const router = useRouter();
 
   // State to manage which version to show
   const [displayedLyrics, setDisplayedLyrics] = useState(lyrics);
-  const [romajiCache, setRomajiCache] = useState(null);
+  const [romajiCache, setRomajiCache] = useState(preComputedRomaji || null);
   const [isRomajiActive, setIsRomajiActive] = useState(false);
   const [converting, setConverting] = useState(false);
 
@@ -51,15 +51,22 @@ export default function LyricsScreen() {
   };
 
   const handleSave = async () => {
-    const result = await saveSong({
+    // We construct the object to include both original and converted lyrics
+    const songToSave = {
       artist,
       title,
-      lyrics, // Original
-      romaji: romajiCache, // Will be saved if the user converted it
-    });
+      lyrics, // Always save the original
+      romaji: romajiCache, // This will be null if never converted, or the string if it was
+      isFavorite: true,
+    };
 
-    if (result === "saved") alert("Song saved to your phone!");
-    else if (result === "exists") alert("This song is already saved.");
+    const result = await saveSong(songToSave);
+
+    if (result === "saved") {
+      alert("Song saved! You can view the Romaji in your library.");
+    } else if (result === "exists") {
+      alert("This song is already in your library.");
+    }
   };
 
   return (

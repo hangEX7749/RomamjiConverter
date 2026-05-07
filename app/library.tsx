@@ -1,18 +1,18 @@
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    Alert,
-    FlatList,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { deleteSong, getSavedSongs } from "../utils/storage";
 
 export default function LibraryScreen() {
   const [savedSongs, setSavedSongs] = useState<
-    Array<{ title: string; artist: string; lyrics: string }>
+    Array<{ title: string; artist: string; lyrics: string; romaji?: string }>
   >([]);
   const router = useRouter();
 
@@ -60,6 +60,8 @@ export default function LibraryScreen() {
                     artist: item.artist,
                     title: item.title,
                     lyrics: item.lyrics,
+                    // Pass the saved romaji back so you don't have to convert it again!
+                    preComputedRomaji: item.romaji,
                   },
                 })
               }
