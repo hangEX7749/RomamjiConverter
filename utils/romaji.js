@@ -19,8 +19,7 @@ export const convertToRomaji = async (japaneseText) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization:
-            "Bearer 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", // Your new free key from OpenRouter
+          Authorization: "Bearer APIKEY", // Your new free key from OpenRouter
         },
         body: JSON.stringify({
           model: "openrouter/free", // Use the free model name
