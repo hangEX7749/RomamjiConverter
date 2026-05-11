@@ -54,6 +54,8 @@ export default function RootLayout() {
             headerShown: false,
           }}
         />
+
+        <Stack.Screen name="savedLyric" options={{ headerShown: false }} />
       </Stack>
 
       {/* This controls the TOP system bar (clock, battery) */}

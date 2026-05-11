@@ -1,18 +1,15 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { convertToRomaji } from "../utils/romaji";
 import { saveSong } from "../utils/storage";
 
-export default function LyricsScreen() {
+export default function SavedLyricsScreen() {
   const { artist, title, lyrics, preComputedRomaji } = useLocalSearchParams();
   const router = useRouter();
 
@@ -35,36 +32,9 @@ export default function LyricsScreen() {
       setDisplayedLyrics(romajiCache);
       setIsRomajiActive(true);
       return;
+    } else {
+      alert("Could not convert lyrics at this time.");
     }
-
-    Alert.alert(
-      "Convert Lyrics",
-      "Would you like to convert these lyrics to Romaji?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Convert",
-          onPress: async () => {
-            // EVERYTHING that should happen after clicking "Convert" goes here
-            setConverting(true);
-            try {
-              const result = await convertToRomaji(lyrics);
-              if (result && result.trim().length > 0) {
-                setRomajiCache(result);
-                setDisplayedLyrics(result);
-                setIsRomajiActive(true);
-              } else {
-                alert("Could not convert lyrics at this time.");
-              }
-            } catch (error) {
-              alert("An error occurred during conversion.");
-            } finally {
-              setConverting(false);
-            }
-          },
-        },
-      ],
-    );
   };
 
   const handleSave = async () => {
@@ -96,24 +66,16 @@ export default function LyricsScreen() {
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={handleSave} style={styles.saveBtn}>
-          <Text style={styles.saveBtnText}>💾 Save Song</Text>
-        </TouchableOpacity>
-
-        {/* Romaji Toggle Button */}
-        <TouchableOpacity
-          onPress={handleToggleRomaji}
-          style={[styles.romajiBtn, isRomajiActive && styles.romajiBtnActive]}
-          disabled={converting}
-        >
-          {converting ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
+        {romajiCache && (
+          <TouchableOpacity
+            onPress={handleToggleRomaji}
+            style={[styles.romajiBtn, isRomajiActive && styles.romajiBtnActive]}
+          >
             <Text style={styles.romajiBtnText}>
-              {isRomajiActive ? "Show Original" : "Convert to Romaji"}
+              {isRomajiActive ? "Show Original" : "Show Romaji"}
             </Text>
-          )}
-        </TouchableOpacity>
+          </TouchableOpacity>
+        )}
       </View>
 
       <Text style={styles.title}>{title}</Text>

@@ -55,7 +55,7 @@ export default function LibraryScreen() {
               style={{ flex: 1 }}
               onPress={() =>
                 router.push({
-                  pathname: "/lyric",
+                  pathname: "/savedLyric",
                   params: {
                     artist: item.artist,
                     title: item.title,
