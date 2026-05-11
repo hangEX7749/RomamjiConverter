@@ -1,0 +1,33 @@
+{
+  "cli": {
+    "version": ">= 18.11.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "OPEN_ROUNTER_API_URL": "https://lrclib.net/api",
+        "OPEN_ROUNTER_API_KEY": "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"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "OPEN_ROUNTER_API_URL": "https://lrclib.net/api",
+        "OPEN_ROUNTER_API_KEY": "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"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

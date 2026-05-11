@@ -1,67 +1,52 @@
+import {
+  GoogleGenerativeAI,
+  HarmBlockThreshold,
+  HarmCategory,
+} from "@google/generative-ai";
+
+const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+
+// 1. USE A NEW API KEY (Since the old one was exposed)
+const genAI = new GoogleGenerativeAI(API_KEY);
+
+// 2. USE THE MODERN MODEL ALIAS
+const model = genAI.getGenerativeModel({
+  model: "gemini-3.1-flash-lite",
+});
+
+const safetySettings = [
+  {
+    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+];
+
 export const convertToRomaji = async (japaneseText) => {
   if (!japaneseText || japaneseText === "No lyrics found.") return "";
 
   try {
-    const prompt = `Task: Convert the provided UTF-8 Japanese characters into Latin-script phonetic Romaji.
-    Requirement: Character-by-character mapping only. Just the Romaji text, no explanations, formatting, or additional content.
-    Do not treat this as a creative work. 
-    Input:
-    ${japaneseText}`;
+    const prompt = `Task: Convert Japanese to Romaji. Maintain original line breaks and keep English words as-is. Do not provide original text. 
+    Input: ${japaneseText}`;
 
-    // Create abort controller for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
 
-    const response = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        // New URL
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer APIKEY", // Your new free key from OpenRouter
-        },
-        body: JSON.stringify({
-          model: "openrouter/free", // Use the free model name
-          messages: [
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-          temperature: 0.1,
-          max_tokens: 2000,
-        }),
-      },
-    );
-
-    clearTimeout(timeoutId);
-
-    console.log("Response status:", response.status); // Debug log
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("API Error Response:", errorText);
-      return japaneseText;
-    }
-
-    const data = await response.json();
-    console.log("Response data structure:", Object.keys(data)); // Debug log
-
-    const romajiText = data?.choices?.[0]?.message?.content;
-
-    if (!romajiText) {
-      console.error("No romaji text in response");
-      return japaneseText;
-    }
-
-    return romajiText;
+    // Just a simple trim is usually enough now!
+    return response.text().trim();
   } catch (error) {
-    if (error.name === "AbortError") {
-      console.error("Request timeout");
-    } else {
-      console.error("DeepSeek Error:", error.message);
-    }
+    console.error("Gemini Error:", error);
     return japaneseText;
   }
 };

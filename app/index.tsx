@@ -74,7 +74,7 @@ export default function SearchScreen() {
       <View style={styles.searchBox}>
         <TextInput
           style={styles.input}
-          placeholder="Search song or artist..."
+          placeholder="Search for songs..."
           placeholderTextColor="#888"
           value={query}
           onChangeText={setQuery}
