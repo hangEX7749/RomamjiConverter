@@ -13,18 +13,18 @@
         "buildType": "apk"
       },
       "env": {
-        "OPEN_ROUNTER_API_URL": "https://lrclib.net/api",
-        "OPEN_ROUNTER_API_KEY": "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"
+        "EXPO_PUBLIC_OPEN_ROUTER_API_URL": "https://lrclib.net/api",
+        "EXPO_PUBLIC_OPEN_ROUTER_API_KEY": "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",
+        "EXPO_PUBLIC_GEMINI_API_KEY": "$GEMINI_API_KEY"
       }
     },
     "production": {
       "environment": "production",
-      "android": {
-        "buildType": "app-bundle"
-      },
+      "android": { "buildType": "app-bundle" },
       "env": {
-        "OPEN_ROUNTER_API_URL": "https://lrclib.net/api",
-        "OPEN_ROUNTER_API_KEY": "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"
+        "EXPO_PUBLIC_OPEN_ROUTER_API_URL": "https://lrclib.net/api",
+        "EXPO_PUBLIC_OPEN_ROUTER_API_KEY": "$OPEN_ROUTER_API_KEY",
+        "EXPO_PUBLIC_GEMINI_API_KEY": "$GEMINI_API_KEY"
       }
     }
   },

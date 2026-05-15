@@ -5,6 +5,7 @@ import {
   FlatList,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -14,10 +15,13 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { getAllSongs, saveSong } from "../utils/storage";
+
 export default function LibraryScreen() {
   const [savedSongs, setSavedSongs] = useState<
     Array<{ title: string; artist: string; lyrics: string; romaji?: string }>
   >([]);
+  const [searchQuery, setSearchQuery] = useState(""); // 2. Add search query state
+  const [dropdownVisible, setDropdownVisible] = useState(false);
   const router = useRouter();
 
   const loadSongs = async () => {
@@ -28,6 +32,15 @@ export default function LibraryScreen() {
   useEffect(() => {
     loadSongs();
   }, []);
+
+  // Derived State: Filter songs dynamically based on the search query
+  const filteredSongs = savedSongs.filter((song) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      song.title.toLowerCase().includes(query) ||
+      song.artist.toLowerCase().includes(query)
+    );
+  });
 
   const confirmDelete = (title: any, artist: any) => {
     Alert.alert("Delete Song", "Are you sure?", [
@@ -100,8 +113,6 @@ export default function LibraryScreen() {
     }
   };
 
-  const [dropdownVisible, setDropdownVisible] = useState(false);
-
   return (
     <View style={styles.container}>
       <View style={styles.navRow}>
@@ -148,9 +159,25 @@ export default function LibraryScreen() {
 
       <Text style={styles.header}>My Library</Text>
 
+      <TextInput
+        style={styles.searchBar}
+        placeholder="Search by title or artist..."
+        placeholderTextColor="#666"
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        clearButtonMode="while-editing" // Adds an native 'X' button on iOS
+      />
+
       <FlatList
-        data={savedSongs}
+        data={filteredSongs}
         keyExtractor={(item) => item.title + item.artist}
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>
+            {searchQuery
+              ? "No matching songs found."
+              : "Your library is empty."}
+          </Text>
+        }
         renderItem={({ item }) => (
           <View style={styles.item}>
             <TouchableOpacity
@@ -191,6 +218,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   header: { color: "#fff", fontSize: 28, fontWeight: "bold", marginBottom: 20 },
+  searchBar: {
+    backgroundColor: "#1E1E1E",
+    color: "#fff",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    fontSize: 16,
+    marginBottom: 20,
+    borderWidth: 0.5,
+    borderColor: "#333",
+  },
+
+  emptyText: {
+    color: "#666",
+    textAlign: "center",
+    marginTop: 40,
+    fontSize: 16,
+  },
   backButton: {
     backgroundColor: "#0F0F0F",
     paddingVertical: 8,
