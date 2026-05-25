@@ -52,8 +52,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "41dabc97-953b-410f-a783-a7e68d3a3730"
+        "projectId": "172fddf5-a608-400f-8b7d-5cb4d3ff2035"
       }
-    }
+    },
+    "owner": "mamarduker"
   }
 }
