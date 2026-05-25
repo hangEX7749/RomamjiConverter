@@ -1,6 +1,28 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const STORAGE_KEY = "@my_stored_lyrics";
+const API_KEY_STORAGE_KEY = "@gemini_api_key";
+
+// Save the API key to the device
+export const saveApiKey = async (key) => {
+  try {
+    await AsyncStorage.setItem(API_KEY_STORAGE_KEY, key);
+    return true;
+  } catch (e) {
+    console.error("Error saving API key", e);
+    return false;
+  }
+};
+
+// Retrieve the API key from the device
+export const getApiKey = async () => {
+  try {
+    return await AsyncStorage.getItem(API_KEY_STORAGE_KEY);
+  } catch (e) {
+    console.error("Error fetching API key", e);
+    return null;
+  }
+};
 
 export const saveSong = async (songData) => {
   try {
