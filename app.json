@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "SongRomajiApp",
-    "slug": "SongRomajiApp",
+    "name": "RomajiFy",
+    "slug": "romajify",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -24,7 +24,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.mamarduker.SongRomajiApp"
+      "package": "com.mamarduker.romajify"
     },
     "web": {
       "output": "static",

@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import RomajiFyLogo from "../components/RomajiFyLogo"; // 1. Import your new Logo Component
 import { searchTracks } from "../services/lyricsApi";
 import { getApiKey, saveApiKey } from "../utils/storage";
 
@@ -33,23 +34,15 @@ export default function SearchScreen() {
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [apiKeyModalVisible, setApiKeyModalVisible] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState("");
-
-  // 1. Add state to track if API key is missing
   const [isApiKeyMissing, setIsApiKeyMissing] = useState(false);
 
   const router = useRouter();
 
-  // 2. Separate function to check API key status
   const checkApiKeyStatus = async () => {
     const key = await getApiKey();
-    if (!key) {
-      setIsApiKeyMissing(true);
-    } else {
-      setIsApiKeyMissing(false);
-    }
+    setIsApiKeyMissing(!key);
   };
 
-  // 3. Check key status on mount
   useEffect(() => {
     checkApiKeyStatus();
   }, []);
@@ -57,7 +50,6 @@ export default function SearchScreen() {
   const handleSearch = async () => {
     if (!query) return;
 
-    // 4. Warn user before wasting network requests if key is missing
     if (isApiKeyMissing) {
       Alert.alert(
         "API Key Required",
@@ -108,7 +100,7 @@ export default function SearchScreen() {
         trimmedKey ? "API Key updated!" : "API Key cleared.",
       );
       setApiKeyModalVisible(false);
-      checkApiKeyStatus(); // 5. Refresh status immediately after updating
+      checkApiKeyStatus();
     } else {
       Alert.alert("Error", "Failed to save the API key.");
     }
@@ -116,33 +108,44 @@ export default function SearchScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.navRow}>
-        <TouchableOpacity onPress={() => router.push("./library")}>
-          <Text style={styles.libraryText}>📚 View Library</Text>
-        </TouchableOpacity>
+      {/* Combined Header Row */}
+      <View style={styles.headerRow}>
+        {/* Left Side: Brand Logo */}
+        <View style={styles.logoContainer}>
+          <RomajiFyLogo width={160} height={48} />
+        </View>
 
-        <View>
+        {/* Right Side: Action Actions Actions */}
+        <View style={styles.rightActions}>
           <TouchableOpacity
-            onPress={() => setDropdownVisible((v) => !v)}
-            style={styles.optionsToggleBtn}
+            onPress={() => router.push("./library")}
+            style={styles.libraryButton}
           >
-            <Text style={styles.optionsToggleText}>Options ▾</Text>
+            <Text style={styles.libraryText}>📚 Library</Text>
           </TouchableOpacity>
 
-          {dropdownVisible && (
-            <View style={styles.dropdownMenu}>
-              <TouchableOpacity
-                onPress={openApiKeySettings}
-                style={styles.dropdownItem}
-              >
-                <Text style={styles.dropdownText}>🔑 Gemini API Key</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          <View>
+            <TouchableOpacity
+              onPress={() => setDropdownVisible((v) => !v)}
+              style={styles.optionsToggleBtn}
+            >
+              <Text style={styles.optionsToggleText}>Options ▾</Text>
+            </TouchableOpacity>
+
+            {dropdownVisible && (
+              <View style={styles.dropdownMenu}>
+                <TouchableOpacity
+                  onPress={openApiKeySettings}
+                  style={styles.dropdownItem}
+                >
+                  <Text style={styles.dropdownText}>🔑 Gemini API Key</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         </View>
       </View>
 
-      {/* 6. Visual Warning banner if API key is missing */}
       {isApiKeyMissing && (
         <TouchableOpacity
           style={styles.warningBanner}
@@ -153,8 +156,6 @@ export default function SearchScreen() {
           </Text>
         </TouchableOpacity>
       )}
-
-      <Text style={styles.header}>Song Search</Text>
 
       <View style={styles.searchBox}>
         <TextInput
@@ -271,7 +272,69 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingHorizontal: 20,
   },
-  header: { color: "#fff", fontSize: 24, fontWeight: "bold", marginBottom: 20 },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+    width: "100%",
+  },
+  // Keeps the logo safely tight on the left margin
+  logoContainer: {
+    justifyContent: "center",
+    marginLeft: -15, // Offsets the internal SVG canvas whitespace for alignment
+  },
+  // Groups your links and buttons horizontally on the right side
+  rightActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12, // Creates clean, even spacing between Library and Options
+  },
+  libraryButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+  },
+  libraryText: {
+    color: "#1DB954",
+    fontWeight: "bold",
+    fontSize: 14,
+  },
+  optionsToggleBtn: {
+    backgroundColor: "#1E1E1E",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: "#444",
+  },
+  optionsToggleText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  dropdownMenu: {
+    position: "absolute",
+    right: 0,
+    top: 35,
+    backgroundColor: "#1E1E1E",
+    borderRadius: 10,
+    borderWidth: 0.5,
+    borderColor: "#333",
+    minWidth: 150,
+    zIndex: 999,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+  },
+  dropdownItem: {
+    padding: 12,
+  },
+  dropdownText: {
+    color: "#fff",
+    fontSize: 13,
+  },
   searchBox: { flexDirection: "row", gap: 10, marginBottom: 20 },
   input: {
     flex: 1,
@@ -313,36 +376,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
-  libraryText: { color: "#1DB954", fontWeight: "bold" },
-  optionsToggleBtn: {
-    backgroundColor: "#1E1E1E",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 0.5,
-    borderColor: "#444",
-  },
-  optionsToggleText: { color: "#fff", fontSize: 13, fontWeight: "600" },
-  dropdownMenu: {
-    position: "absolute",
-    right: 0,
-    top: 35,
-    backgroundColor: "#1E1E1E",
-    borderRadius: 10,
-    borderWidth: 0.5,
-    borderColor: "#333",
-    minWidth: 160,
-    zIndex: 999,
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-  },
-  dropdownItem: { padding: 12 },
-  dropdownText: { color: "#fff", fontSize: 14 },
-
-  // --- New Styling for the Warning Banner ---
   warningBanner: {
     backgroundColor: "#5c4300",
     borderWidth: 1,
