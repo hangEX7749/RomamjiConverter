@@ -9,12 +9,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useLyricFont } from "../hooks/use-lyric-font";
 import { convertToRomaji } from "../utils/romaji";
 import { saveSong } from "../utils/storage";
 
 export default function LyricsScreen() {
   const { artist, title, lyrics, preComputedRomaji } = useLocalSearchParams();
   const router = useRouter();
+  const lyricFont = useLyricFont();
 
   // State to manage which version to show
   const [displayedLyrics, setDisplayedLyrics] = useState(lyrics);
@@ -123,7 +125,7 @@ export default function LyricsScreen() {
         style={styles.lyricsContainer}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.lyricsText}>
+        <Text style={[styles.lyricsText, lyricFont]}>
           {displayedLyrics || "No lyrics available for this track."}
         </Text>
       </ScrollView>
