@@ -15,21 +15,23 @@ import RomajiFyLogo from "../components/RomajiFyLogo"; // 1. Import your new Log
 import { searchTracks } from "../services/lyricsApi";
 import { getApiKey, saveApiKey } from "../utils/storage";
 
+type TrackResult = {
+  romanizedLyrics: null;
+  id: string | number;
+  trackName: string;
+  artistName: string;
+  plainLyrics: string;
+};
+
+const PAGE_SIZE = 10;
+
 export default function SearchScreen() {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<
-    {
-      romanizedLyrics: null;
-      id: string | number;
-      trackName: string;
-      artistName: string;
-      plainLyrics: string;
-    }[]
-  >([]);
+  // Full result set from LRCLIB; we paginate this locally because the API
+  // doesn't support limit/offset — it always returns every match in one shot.
+  const [allResults, setAllResults] = useState<TrackResult[]>([]);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
 
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [apiKeyModalVisible, setApiKeyModalVisible] = useState(false);
@@ -59,30 +61,18 @@ export default function SearchScreen() {
     }
 
     setLoading(true);
-    setPage(1);
-
-    const data = await searchTracks(query, 1);
-    setResults(data);
-    setHasMore(data.length === 10);
+    const data = await searchTracks(query);
+    setAllResults(data);
+    setVisibleCount(PAGE_SIZE);
     setLoading(false);
   };
 
-  const handleLoadMore = async () => {
-    if (loadingMore || results.length === 0 || !hasMore) return;
-
-    setLoadingMore(true);
-    const nextPage = page + 1;
-    const newData = await searchTracks(query, nextPage);
-
-    if (newData.length > 0) {
-      setResults([...results, ...newData]);
-      setPage(nextPage);
-      setHasMore(newData.length === 10);
-    } else {
-      setHasMore(false);
-    }
-    setLoadingMore(false);
+  const handleLoadMore = () => {
+    setVisibleCount((c) => Math.min(c + PAGE_SIZE, allResults.length));
   };
+
+  const results = allResults.slice(0, visibleCount);
+  const hasMore = visibleCount < allResults.length;
 
   const openApiKeySettings = async () => {
     setDropdownVisible(false);
@@ -200,13 +190,8 @@ export default function SearchScreen() {
               <TouchableOpacity
                 style={styles.loadMoreButton}
                 onPress={handleLoadMore}
-                disabled={loadingMore}
               >
-                {loadingMore ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.loadMoreText}>Load More Results</Text>
-                )}
+                <Text style={styles.loadMoreText}>Load More Results</Text>
               </TouchableOpacity>
             ) : results.length > 0 && !hasMore ? (
               <View style={styles.endMessage}>
