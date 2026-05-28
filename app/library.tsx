@@ -10,12 +10,16 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { deleteSong, getSavedSongs } from "../utils/storage";
-
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
-import { getAllSongs, getApiKey, saveApiKey, saveSong } from "../utils/storage"; // Imported API storage helpers
+import {
+  deleteSong,
+  getApiKey,
+  getSavedSongs,
+  saveApiKey,
+  saveSong,
+} from "../utils/storage";
 
 export default function LibraryScreen() {
   const [savedSongs, setSavedSongs] = useState<
@@ -85,7 +89,7 @@ export default function LibraryScreen() {
 
   const handleExport = async () => {
     try {
-      const allSongs = await getAllSongs();
+      const allSongs = await getSavedSongs();
       if (allSongs.length === 0) {
         alert("No songs to export!");
         return;

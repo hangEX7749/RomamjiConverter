@@ -43,19 +43,14 @@ export const saveSong = async (songData) => {
   }
 };
 
-export const getAllSongs = async () => {
+export const getSavedSongs = async () => {
   try {
     const existing = await AsyncStorage.getItem(STORAGE_KEY);
     return existing ? JSON.parse(existing) : [];
   } catch (e) {
-    console.error("Error fetching all songs", e);
+    console.error("Error fetching saved songs", e);
     return [];
   }
-};
-
-export const getSavedSongs = async () => {
-  const existing = await AsyncStorage.getItem(STORAGE_KEY);
-  return existing ? JSON.parse(existing) : [];
 };
 
 export const deleteSong = async (title, artist) => {
