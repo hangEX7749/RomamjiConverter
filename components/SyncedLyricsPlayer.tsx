@@ -13,6 +13,75 @@ import {
 } from "react-native";
 import { parseLrc } from "../utils/syncLyrics";
 
+const isEmojiInterval = (text: string) => {
+  if (!text || text.trim() === "") return true;
+  // If it has any alphanumeric character (a-z, A-Z, 0-9) or any Japanese character (hiragana, katakana, kanji), it's a real lyric line.
+  // Hiragana: \u3040-\u309F, Katakana: \u30A0-\u30FF, Kanji: \u4E00-\u9FAF
+  const hasLyrics = /[a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(text);
+  return !hasLyrics;
+};
+
+const IntroCountdown = React.memo(({
+  duration,
+  currentTime,
+  onPress,
+  isActive,
+  isScrubbing,
+  highlightColor,
+}: {
+  duration: number;
+  currentTime: number;
+  onPress: (time: number) => void;
+  isActive: boolean;
+  isScrubbing: boolean;
+  highlightColor: string;
+}) => {
+  const progressAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (isActive && duration > 0) {
+      const progress = Math.max(0, Math.min(1, currentTime / duration));
+      const remaining = 1 - progress;
+      const diff = Math.abs(remaining - (progressAnim as any)._value);
+      if (diff > 0.15) {
+        progressAnim.setValue(remaining);
+      } else {
+        Animated.timing(progressAnim, {
+          toValue: remaining,
+          duration: 100,
+          useNativeDriver: false,
+        }).start();
+      }
+    } else {
+      progressAnim.setValue(isActive ? 1 : 0);
+    }
+  }, [currentTime, isActive, duration]);
+
+  const widthInterpolate = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0%", "100%"],
+  });
+
+  return (
+    <TouchableOpacity activeOpacity={0.7} onPress={() => onPress(0)} disabled={!isActive}>
+      <View style={styles.lyricLineContainer}>
+        {/* Loading bar container */}
+        <View style={[styles.intervalBarContainer, { opacity: isActive ? 1 : 0 }]}>
+          <Animated.View
+            style={[
+              styles.intervalBarFill,
+              {
+                width: widthInterpolate,
+                backgroundColor: highlightColor,
+              },
+            ]}
+          />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
 const LyricLine = React.memo(({
   text,
   isActive,
@@ -22,6 +91,9 @@ const LyricLine = React.memo(({
   style,
   isScrubbing,
   highlightColor,
+  isEmojiInterval,
+  duration,
+  currentTime,
 }: {
   text: string;
   isActive: boolean;
@@ -31,6 +103,9 @@ const LyricLine = React.memo(({
   style?: any;
   isScrubbing?: boolean;
   highlightColor?: string;
+  isEmojiInterval?: boolean;
+  duration?: number;
+  currentTime?: number;
 }) => {
   const getInitialValue = () => {
     if (isActive) return 1;
@@ -39,6 +114,7 @@ const LyricLine = React.memo(({
   };
 
   const animValue = useRef(new Animated.Value(getInitialValue())).current;
+  const progressAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     let toValue = 0;
@@ -48,14 +124,33 @@ const LyricLine = React.memo(({
       toValue = 2;
     }
 
-    const duration = isScrubbing ? 0 : (isActive ? 0 : 400); // 0ms for instant highlight / scrubbing, 400ms for snappy fade-out
+    const animDuration = isScrubbing ? 0 : (isActive ? 0 : 400); // 0ms for instant highlight / scrubbing, 400ms for snappy fade-out
 
     Animated.timing(animValue, {
       toValue,
-      duration,
+      duration: animDuration,
       useNativeDriver: true, // Native driver runs entirely on GPU/UI thread
     }).start();
   }, [isActive, isPast, isScrubbing]);
+
+  useEffect(() => {
+    if (isEmojiInterval && isActive && duration && duration > 0 && currentTime !== undefined) {
+      const progress = Math.max(0, Math.min(1, (currentTime - time) / duration));
+      const remaining = 1 - progress;
+      const diff = Math.abs(remaining - (progressAnim as any)._value);
+      if (diff > 0.15) {
+        progressAnim.setValue(remaining);
+      } else {
+        Animated.timing(progressAnim, {
+          toValue: remaining,
+          duration: 100,
+          useNativeDriver: false,
+        }).start();
+      }
+    } else {
+      progressAnim.setValue(isActive ? 1 : 0);
+    }
+  }, [currentTime, isActive, isEmojiInterval, time, duration]);
 
   const textOpacity = animValue.interpolate({
     inputRange: [0, 1, 2],
@@ -65,6 +160,11 @@ const LyricLine = React.memo(({
   const bgOpacity = animValue.interpolate({
     inputRange: [0, 1, 2],
     outputRange: [0, 1, 0], // Translucent glow visible only in active state
+  });
+
+  const widthInterpolate = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0%", "100%"],
   });
 
   return (
@@ -91,6 +191,21 @@ const LyricLine = React.memo(({
         >
           {text || "🎵"}
         </Animated.Text>
+
+        {/* Emoji Interval countdown loading bar */}
+        {isEmojiInterval && (
+          <View style={[styles.intervalBarContainer, { opacity: isActive ? 1 : 0 }]}>
+            <Animated.View
+              style={[
+                styles.intervalBarFill,
+                {
+                  width: widthInterpolate,
+                  backgroundColor: highlightColor || "#FFFFFF",
+                },
+              ]}
+            />
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -107,6 +222,8 @@ const LyricsList = React.memo(({
   containerHeight,
   autoScroll,
   highlightColor,
+  currentTime,
+  trackDuration,
 }: {
   scrollViewRef: React.RefObject<ScrollView | null>;
   parsedLines: any[];
@@ -118,16 +235,35 @@ const LyricsList = React.memo(({
   containerHeight: number;
   autoScroll: boolean;
   highlightColor: string;
+  currentTime: number;
+  trackDuration: number;
 }) => {
+  const firstLineTime = parsedLines[0]?.time || 0;
+  const showIntro = firstLineTime > 1.5; // Show intro if there's more than 1.5s before first lyric
+
   return (
     <ScrollView
       ref={scrollViewRef}
       contentContainerStyle={styles.flatListContent}
       showsVerticalScrollIndicator={false}
     >
+      {showIntro && (
+        <IntroCountdown
+          duration={firstLineTime}
+          currentTime={currentTime}
+          onPress={handleLinePress}
+          isActive={activeLineIndex === -1 && currentTime < firstLineTime}
+          isScrubbing={isScrubbing}
+          highlightColor={highlightColor}
+        />
+      )}
       {parsedLines.map((item, index) => {
         const isActive = index === activeLineIndex;
         const isPast = index < activeLineIndex;
+        const nextTime = parsedLines[index + 1]?.time || trackDuration;
+        const itemDuration = nextTime - item.time;
+        const emojiInterval = isEmojiInterval(item.text);
+
         return (
           <View
             key={`${item.time}-${index}`}
@@ -154,6 +290,9 @@ const LyricsList = React.memo(({
               style={lyricStyle}
               isScrubbing={isScrubbing}
               highlightColor={highlightColor}
+              isEmojiInterval={emojiInterval}
+              duration={emojiInterval ? itemDuration : undefined}
+              currentTime={isActive && emojiInterval ? currentTime : 0}
             />
           </View>
         );
@@ -388,6 +527,8 @@ export default function SyncedLyricsPlayer({
             containerHeight={containerHeight}
             autoScroll={autoScroll}
             highlightColor={highlightColor}
+            currentTime={currentTime}
+            trackDuration={trackDuration}
           />
         ) : (
           <ScrollView
@@ -625,5 +766,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 8,
+  },
+  intervalBarContainer: {
+    height: 3,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderRadius: 1.5,
+    marginTop: 4,
+    width: "100%",
+    overflow: "hidden",
+  },
+  intervalBarFill: {
+    height: "100%",
+    borderRadius: 1.5,
   },
 });
