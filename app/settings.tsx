@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { useRouter } from "expo-router";
@@ -19,6 +20,7 @@ import {
   FONT_FAMILY_OPTIONS,
   FONT_SIZE_MAX,
   FONT_SIZE_MIN,
+  HIGHLIGHT_COLOR_OPTIONS,
   LINE_HEIGHT_MAX,
   LINE_HEIGHT_MIN,
   getApiKey,
@@ -41,8 +43,29 @@ const PREVIEW_FAMILY: Record<string, string | undefined> = {
   monospace: Platform.OS === "ios" ? "Menlo" : "monospace",
 };
 
-const SAMPLE_LYRICS =
-  "夜に駆ける\nさよならだけだった\nyoru ni kakeru\nsayonara dake datta";
+const SAMPLE_LYRICS_LINES = [
+  { text: "夜に駆ける", type: "past" },
+  { text: "さよならだけだった", type: "active" },
+  { text: "yoru ni kakeru", type: "future" },
+  { text: "sayonara dake datta", type: "future" },
+];
+
+const isValidHex = (hex: string) => {
+  return /^#[0-9A-Fa-f]{6}$/.test(hex);
+};
+
+const isColorLight = (hexColor: string) => {
+  try {
+    const hex = hexColor.replace("#", "");
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness > 180;
+  } catch (e) {
+    return false;
+  }
+};
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -56,6 +79,20 @@ export default function SettingsScreen() {
   const [fontFamily, setFontFamily] = useState(DEFAULT_FONT_PREFS.fontFamily);
   const [lineHeight, setLineHeight] = useState(DEFAULT_FONT_PREFS.lineHeight);
   const [autoScroll, setAutoScroll] = useState(DEFAULT_FONT_PREFS.autoScroll);
+  const [highlightColor, setHighlightColor] = useState(DEFAULT_FONT_PREFS.highlightColor);
+  const [customHex, setCustomHex] = useState("");
+
+  const activeIsCustom = highlightColor && !HIGHLIGHT_COLOR_OPTIONS.some(opt => opt.value.toLowerCase() === highlightColor.toLowerCase());
+
+  const handleCustomHexChange = (text: string) => {
+    let formatted = text.trim();
+    if (formatted && !formatted.startsWith("#")) {
+      formatted = "#" + formatted;
+    }
+    if (formatted.length <= 7) {
+      setCustomHex(formatted);
+    }
+  };
 
   // Hydrate state from storage on mount. `loaded` gates the auto-save effect
   // so we don't immediately overwrite storage with the default values before
@@ -72,6 +109,12 @@ export default function SettingsScreen() {
       setFontFamily(prefs.fontFamily);
       setLineHeight(prefs.lineHeight);
       setAutoScroll(prefs.autoScroll ?? false);
+      const loadedColor = prefs.highlightColor || DEFAULT_FONT_PREFS.highlightColor;
+      setHighlightColor(loadedColor);
+      const isPredefined = HIGHLIGHT_COLOR_OPTIONS.some(opt => opt.value.toLowerCase() === loadedColor.toLowerCase());
+      if (loadedColor && !isPredefined) {
+        setCustomHex(loadedColor);
+      }
       setLoaded(true);
     })();
     return () => {
@@ -83,8 +126,8 @@ export default function SettingsScreen() {
   // latest values when it re-focuses.
   useEffect(() => {
     if (!loaded) return;
-    saveFontPrefs({ fontSize, fontFamily, lineHeight, autoScroll });
-  }, [fontSize, fontFamily, lineHeight, autoScroll, loaded]);
+    saveFontPrefs({ fontSize, fontFamily, lineHeight, autoScroll, highlightColor });
+  }, [fontSize, fontFamily, lineHeight, autoScroll, highlightColor, loaded]);
 
   // --- API key handlers ---
   const handleSaveKey = async () => {
@@ -128,6 +171,8 @@ export default function SettingsScreen() {
     setFontFamily(DEFAULT_FONT_PREFS.fontFamily);
     setLineHeight(DEFAULT_FONT_PREFS.lineHeight);
     setAutoScroll(DEFAULT_FONT_PREFS.autoScroll);
+    setHighlightColor(DEFAULT_FONT_PREFS.highlightColor);
+    setCustomHex("");
   };
 
   // --- Backup / restore ---
@@ -329,19 +374,115 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Highlight Color */}
+          <Text style={styles.label}>Highlight Color</Text>
+          <View style={[styles.row, { gap: 12, flexWrap: "wrap", marginBottom: 14 }]}>
+            {HIGHLIGHT_COLOR_OPTIONS.map((opt) => {
+              const active = opt.value.toLowerCase() === highlightColor.toLowerCase();
+              return (
+                <TouchableOpacity
+                  key={opt.value}
+                  onPress={() => setHighlightColor(opt.value)}
+                  style={[
+                    styles.colorCircle,
+                    { backgroundColor: opt.value },
+                    active ? styles.colorCircleActive : { borderColor: "#444" },
+                  ]}
+                  accessibilityLabel={opt.label}
+                >
+                  {active && (
+                    <Ionicons
+                      name="checkmark"
+                      size={16}
+                      color={opt.value === "#FFFFFF" || opt.value === "#EAB308" ? "#000" : "#fff"}
+                    />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+
+            {/* Custom Color Circle Slot */}
+            <TouchableOpacity
+              onPress={() => {
+                if (isValidHex(customHex)) {
+                  setHighlightColor(customHex);
+                }
+              }}
+              style={[
+                styles.colorCircle,
+                { backgroundColor: isValidHex(customHex) ? customHex : "#2A2A2A" },
+                activeIsCustom ? styles.colorCircleActive : { borderColor: "#444" },
+              ]}
+              accessibilityLabel="Custom Color"
+              disabled={!isValidHex(customHex)}
+            >
+              {activeIsCustom ? (
+                <Ionicons
+                  name="checkmark"
+                  size={16}
+                  color={isColorLight(customHex) ? "#000" : "#fff"}
+                />
+              ) : !isValidHex(customHex) ? (
+                <Ionicons name="add" size={16} color="#aaa" />
+              ) : null}
+            </TouchableOpacity>
+          </View>
+
+          {/* Custom Hex Input */}
+          <Text style={styles.label}>Custom Hex Color</Text>
+          <View style={[styles.row, { marginBottom: 14 }]}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginBottom: 0 }]}
+              placeholder="e.g. #FF5733"
+              placeholderTextColor="#555"
+              value={customHex}
+              onChangeText={handleCustomHexChange}
+              autoCapitalize="none"
+              autoCorrect={false}
+              maxLength={7}
+            />
+            {isValidHex(customHex) && (
+              <TouchableOpacity
+                onPress={() => setHighlightColor(customHex)}
+                style={[
+                  styles.btn,
+                  styles.btnPrimary,
+                  { marginLeft: 10, backgroundColor: customHex },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.btnPrimaryText,
+                    { color: isColorLight(customHex) ? "#000" : "#fff" },
+                  ]}
+                >
+                  Apply
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
           {/* Preview */}
           <Text style={styles.label}>Preview</Text>
           <View style={styles.preview}>
-            <Text
-              style={{
-                color: "#E0E0E0",
-                fontSize,
-                lineHeight,
-                fontFamily: previewFamily,
-              }}
-            >
-              {SAMPLE_LYRICS}
-            </Text>
+            {SAMPLE_LYRICS_LINES.map((line, idx) => {
+              const isActive = line.type === "active";
+              const isPast = line.type === "past";
+              return (
+                <Text
+                  key={idx}
+                  style={{
+                    color: (isActive || isPast) ? highlightColor : "#FFFFFF",
+                    opacity: isActive ? 1.0 : (isPast ? 0.15 : 0.4),
+                    fontSize,
+                    lineHeight,
+                    fontFamily: previewFamily,
+                  }}
+                >
+                  {line.text}
+                </Text>
+              );
+            })}
           </View>
         </View>
 
@@ -511,5 +652,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#2a2a2a",
     minHeight: 80,
+  },
+  colorCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  colorCircleActive: {
+    borderColor: "#fff",
   },
 });

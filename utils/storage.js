@@ -11,7 +11,19 @@ export const DEFAULT_FONT_PREFS = {
   fontFamily: "system",
   lineHeight: 30,
   autoScroll: false,
+  highlightColor: "#FFFFFF",
 };
+
+export const HIGHLIGHT_COLOR_OPTIONS = [
+  { value: "#FFFFFF", label: "White" },
+  { value: "#1DB954", label: "Green" },
+  { value: "#007AFF", label: "Blue" },
+  { value: "#00D2FF", label: "Cyan" },
+  { value: "#FF4A85", label: "Pink" },
+  { value: "#E65C00", label: "Orange" },
+  { value: "#A855F7", label: "Purple" },
+  { value: "#EAB308", label: "Yellow" },
+];
 
 export const FONT_SIZE_MIN = 12;
 export const FONT_SIZE_MAX = 32;

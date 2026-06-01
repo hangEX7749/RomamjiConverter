@@ -16,6 +16,7 @@ export type LyricFontPrefs = {
   fontFamily: string; // token, not resolved
   lineHeight: number;
   autoScroll: boolean;
+  highlightColor?: string;
 };
 
 export type ResolvedLyricFont = {
@@ -23,6 +24,7 @@ export type ResolvedLyricFont = {
   lineHeight: number;
   fontFamily: string | undefined;
   autoScroll: boolean;
+  highlightColor: string;
 };
 
 // Loads the saved lyric typography prefs and re-loads them whenever the screen
@@ -45,5 +47,6 @@ export function useLyricFont(): ResolvedLyricFont {
     lineHeight: prefs.lineHeight,
     fontFamily: FAMILY_MAP[prefs.fontFamily],
     autoScroll: prefs.autoScroll ?? false,
+    highlightColor: prefs.highlightColor || "#FFFFFF",
   };
 }

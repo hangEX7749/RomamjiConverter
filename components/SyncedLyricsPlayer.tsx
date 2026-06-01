@@ -21,6 +21,7 @@ const LyricLine = React.memo(({
   time,
   style,
   isScrubbing,
+  highlightColor,
 }: {
   text: string;
   isActive: boolean;
@@ -29,6 +30,7 @@ const LyricLine = React.memo(({
   time: number;
   style?: any;
   isScrubbing?: boolean;
+  highlightColor?: string;
 }) => {
   const getInitialValue = () => {
     if (isActive) return 1;
@@ -83,7 +85,7 @@ const LyricLine = React.memo(({
         <Animated.Text
           style={[
             styles.lyricLineText,
-            { color: "#FFFFFF", opacity: textOpacity },
+            { color: (isActive || isPast) ? (highlightColor || "#FFFFFF") : "#FFFFFF", opacity: textOpacity },
             style,
           ]}
         >
@@ -104,6 +106,7 @@ const LyricsList = React.memo(({
   isScrubbing,
   containerHeight,
   autoScroll,
+  highlightColor,
 }: {
   scrollViewRef: React.RefObject<ScrollView | null>;
   parsedLines: any[];
@@ -114,6 +117,7 @@ const LyricsList = React.memo(({
   isScrubbing: boolean;
   containerHeight: number;
   autoScroll: boolean;
+  highlightColor: string;
 }) => {
   return (
     <ScrollView
@@ -149,6 +153,7 @@ const LyricsList = React.memo(({
               time={item.time}
               style={lyricStyle}
               isScrubbing={isScrubbing}
+              highlightColor={highlightColor}
             />
           </View>
         );
@@ -178,6 +183,7 @@ export default function SyncedLyricsPlayer({
   lyricStyle,
   autoScroll = false,
 }: SyncedLyricsPlayerProps) {
+  const highlightColor = lyricStyle?.highlightColor || "#FFFFFF";
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [progressBarWidth, setProgressBarWidth] = useState(0);
@@ -381,6 +387,7 @@ export default function SyncedLyricsPlayer({
             isScrubbing={isScrubbing}
             containerHeight={containerHeight}
             autoScroll={autoScroll}
+            highlightColor={highlightColor}
           />
         ) : (
           <ScrollView
