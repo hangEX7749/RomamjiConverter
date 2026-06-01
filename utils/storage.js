@@ -10,6 +10,7 @@ export const DEFAULT_FONT_PREFS = {
   fontSize: 18,
   fontFamily: "system",
   lineHeight: 30,
+  autoScroll: false,
 };
 
 export const FONT_SIZE_MIN = 12;

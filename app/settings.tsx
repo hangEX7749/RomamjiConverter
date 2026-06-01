@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  Switch,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -54,6 +55,7 @@ export default function SettingsScreen() {
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_PREFS.fontSize);
   const [fontFamily, setFontFamily] = useState(DEFAULT_FONT_PREFS.fontFamily);
   const [lineHeight, setLineHeight] = useState(DEFAULT_FONT_PREFS.lineHeight);
+  const [autoScroll, setAutoScroll] = useState(DEFAULT_FONT_PREFS.autoScroll);
 
   // Hydrate state from storage on mount. `loaded` gates the auto-save effect
   // so we don't immediately overwrite storage with the default values before
@@ -69,6 +71,7 @@ export default function SettingsScreen() {
       setFontSize(prefs.fontSize);
       setFontFamily(prefs.fontFamily);
       setLineHeight(prefs.lineHeight);
+      setAutoScroll(prefs.autoScroll ?? false);
       setLoaded(true);
     })();
     return () => {
@@ -80,8 +83,8 @@ export default function SettingsScreen() {
   // latest values when it re-focuses.
   useEffect(() => {
     if (!loaded) return;
-    saveFontPrefs({ fontSize, fontFamily, lineHeight });
-  }, [fontSize, fontFamily, lineHeight, loaded]);
+    saveFontPrefs({ fontSize, fontFamily, lineHeight, autoScroll });
+  }, [fontSize, fontFamily, lineHeight, autoScroll, loaded]);
 
   // --- API key handlers ---
   const handleSaveKey = async () => {
@@ -124,6 +127,7 @@ export default function SettingsScreen() {
     setFontSize(DEFAULT_FONT_PREFS.fontSize);
     setFontFamily(DEFAULT_FONT_PREFS.fontFamily);
     setLineHeight(DEFAULT_FONT_PREFS.lineHeight);
+    setAutoScroll(DEFAULT_FONT_PREFS.autoScroll);
   };
 
   // --- Backup / restore ---
@@ -338,6 +342,24 @@ export default function SettingsScreen() {
             >
               {SAMPLE_LYRICS}
             </Text>
+          </View>
+        </View>
+
+        {/* === Auto-scroll Lyrics === */}
+        <View style={styles.section}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View style={{ flex: 1, marginRight: 10 }}>
+              <Text style={styles.sectionTitle}>Auto-scroll Lyrics</Text>
+              <Text style={[styles.sectionSubtitle, { marginBottom: 0 }]}>
+                Automatically scroll lyrics as the song plays.
+              </Text>
+            </View>
+            <Switch
+              value={autoScroll}
+              onValueChange={setAutoScroll}
+              trackColor={{ false: "#333", true: "#1DB954" }}
+              thumbColor={Platform.OS === "android" ? (autoScroll ? "#fff" : "#888") : ""}
+            />
           </View>
         </View>
 

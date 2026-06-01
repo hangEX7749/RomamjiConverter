@@ -20,6 +20,8 @@ type TrackResult = {
   trackName: string;
   artistName: string;
   plainLyrics: string;
+  syncedLyrics?: string | null;
+  duration?: number;
 };
 
 const PAGE_SIZE = 10;
@@ -139,6 +141,8 @@ export default function SearchScreen() {
                     artist: item.artistName,
                     title: item.trackName,
                     lyrics: item.plainLyrics,
+                    syncedLyrics: item.syncedLyrics || null,
+                    duration: item.duration || 0,
                     preComputedRomaji: item.romanizedLyrics || null,
                   },
                 })

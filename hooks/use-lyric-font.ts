@@ -15,12 +15,14 @@ export type LyricFontPrefs = {
   fontSize: number;
   fontFamily: string; // token, not resolved
   lineHeight: number;
+  autoScroll: boolean;
 };
 
 export type ResolvedLyricFont = {
   fontSize: number;
   lineHeight: number;
   fontFamily: string | undefined;
+  autoScroll: boolean;
 };
 
 // Loads the saved lyric typography prefs and re-loads them whenever the screen
@@ -42,5 +44,6 @@ export function useLyricFont(): ResolvedLyricFont {
     fontSize: prefs.fontSize,
     lineHeight: prefs.lineHeight,
     fontFamily: FAMILY_MAP[prefs.fontFamily],
+    autoScroll: prefs.autoScroll ?? false,
   };
 }
