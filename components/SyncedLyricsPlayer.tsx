@@ -602,9 +602,9 @@ export default function SyncedLyricsPlayer({
                 <Ionicons name="play-back" size={18} color="#fff" />
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={handleStop} style={styles.controlButton}>
+              {/* <TouchableOpacity onPress={handleStop} style={styles.controlButton}>
                 <Ionicons name="stop" size={22} color="#fff" />
-              </TouchableOpacity>
+              </TouchableOpacity> */}
 
               <TouchableOpacity
                 onPress={handlePlayPause}
@@ -767,12 +767,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-  controlButton: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  // controlButton: {
+  //   width: 36,
+  //   height: 36,
+  //   alignItems: "center",
+  //   justifyContent: "center",
+  // },
   playPauseButton: {
     alignItems: "center",
     justifyContent: "center",
