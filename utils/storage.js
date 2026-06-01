@@ -10,7 +10,7 @@ export const DEFAULT_FONT_PREFS = {
   fontSize: 18,
   fontFamily: "system",
   lineHeight: 30,
-  autoScroll: false,
+  autoScroll: true,
   highlightColor: "#FFFFFF",
 };
 

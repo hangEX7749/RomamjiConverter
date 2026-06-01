@@ -320,7 +320,7 @@ export default function SyncedLyricsPlayer({
   duration = 180, // Default to 3 minutes if not provided
   headerRightActions,
   lyricStyle,
-  autoScroll = false,
+  autoScroll = true,
 }: SyncedLyricsPlayerProps) {
   const highlightColor = lyricStyle?.highlightColor || "#FFFFFF";
   const [isPlaying, setIsPlaying] = useState(false);
@@ -482,6 +482,11 @@ export default function SyncedLyricsPlayer({
     }
   };
 
+  const adjustTime = (amount: number) => {
+    triggerHaptic();
+    setCurrentTime((prev) => Math.max(0, Math.min(trackDuration, prev + amount)));
+  };
+
 
 
   // Jump to specific line on tap (memoized to keep references stable)
@@ -593,6 +598,10 @@ export default function SyncedLyricsPlayer({
 
             {/* Centered Buttons */}
             <View style={styles.buttonsContainer}>
+              <TouchableOpacity onPress={() => adjustTime(-0.2)} style={styles.adjustButton}>
+                <Ionicons name="play-back" size={18} color="#fff" />
+              </TouchableOpacity>
+
               <TouchableOpacity onPress={handleStop} style={styles.controlButton}>
                 <Ionicons name="stop" size={22} color="#fff" />
               </TouchableOpacity>
@@ -606,6 +615,10 @@ export default function SyncedLyricsPlayer({
                   size={28}
                   color="#1DB954"
                 />
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => adjustTime(0.2)} style={styles.adjustButton}>
+                <Ionicons name="play-forward" size={18} color="#fff" />
               </TouchableOpacity>
             </View>
 
@@ -752,20 +765,24 @@ const styles = StyleSheet.create({
   buttonsContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    gap: 12,
   },
   controlButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: "#333",
     alignItems: "center",
     justifyContent: "center",
   },
   playPauseButton: {
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
+  },
+  adjustButton: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
   },
   intervalBarContainer: {
     height: 3,

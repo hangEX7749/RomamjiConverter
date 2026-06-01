@@ -46,7 +46,7 @@ export function useLyricFont(): ResolvedLyricFont {
     fontSize: prefs.fontSize,
     lineHeight: prefs.lineHeight,
     fontFamily: FAMILY_MAP[prefs.fontFamily],
-    autoScroll: prefs.autoScroll ?? false,
+    autoScroll: prefs.autoScroll ?? true,
     highlightColor: prefs.highlightColor || "#FFFFFF",
   };
 }
