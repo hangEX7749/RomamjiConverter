@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -11,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { saveSongsToDevice, shareSongs } from "../utils/backup";
-import { getSavedSongs } from "../utils/storage";
+import { getFolders, getSavedSongs } from "../utils/storage";
 
 type SavedSong = {
   title: string;
@@ -20,6 +21,7 @@ type SavedSong = {
   romaji?: string;
   syncedLyrics?: string | null;
   duration?: number;
+  folders?: string[];
 };
 
 // Stable identity for a saved song. Matches the key scheme used in library.tsx
@@ -30,7 +32,11 @@ export default function ExportSelectScreen() {
   const router = useRouter();
 
   const [songs, setSongs] = useState<SavedSong[]>([]);
+  const [folders, setFolders] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  // Active folder filter; null = All. Filtering only narrows the visible list —
+  // it does not clear the selection, which persists across folder switches.
+  const [activeFolder, setActiveFolder] = useState<string | null>(null);
   // Set of songKey() values that are checked. Empty by default — the user picks
   // what to export.
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -41,8 +47,11 @@ export default function ExportSelectScreen() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const saved = await getSavedSongs();
-      if (!cancelled) setSongs(saved);
+      const [saved, fldrs] = await Promise.all([getSavedSongs(), getFolders()]);
+      if (!cancelled) {
+        setSongs(saved);
+        setFolders(fldrs);
+      }
     })();
     return () => {
       cancelled = true;
@@ -51,12 +60,16 @@ export default function ExportSelectScreen() {
 
   const filteredSongs = useMemo(() => {
     const query = searchQuery.toLowerCase();
-    return songs.filter(
-      (song) =>
+    return songs.filter((song) => {
+      const matchesQuery =
         song.title.toLowerCase().includes(query) ||
-        song.artist.toLowerCase().includes(query),
-    );
-  }, [songs, searchQuery]);
+        song.artist.toLowerCase().includes(query);
+      const matchesFolder =
+        activeFolder === null ||
+        (Array.isArray(song.folders) && song.folders.includes(activeFolder));
+      return matchesQuery && matchesFolder;
+    });
+  }, [songs, searchQuery, activeFolder]);
 
   // The Select-all toggle acts on the currently filtered list: it selects every
   // filtered song unless they are all already selected, in which case it clears
@@ -165,6 +178,45 @@ export default function ExportSelectScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+
+          {folders.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.chipsRow}
+              contentContainerStyle={styles.chipsContent}
+            >
+              <TouchableOpacity
+                onPress={() => setActiveFolder(null)}
+                style={[styles.chip, activeFolder === null && styles.chipActive]}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    activeFolder === null && styles.chipTextActive,
+                  ]}
+                >
+                  All
+                </Text>
+              </TouchableOpacity>
+              {folders.map((name) => {
+                const active = activeFolder === name;
+                return (
+                  <TouchableOpacity
+                    key={name}
+                    onPress={() => setActiveFolder(name)}
+                    style={[styles.chip, active && styles.chipActive]}
+                  >
+                    <Text
+                      style={[styles.chipText, active && styles.chipTextActive]}
+                    >
+                      {name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
 
           <FlatList
             data={filteredSongs}
@@ -280,6 +332,21 @@ const styles = StyleSheet.create({
     borderColor: "#333",
   },
   selectAllText: { color: "#1DB954", fontSize: 13, fontWeight: "700" },
+
+  chipsRow: { marginBottom: 14, flexGrow: 0 },
+  chipsContent: { alignItems: "center", paddingRight: 10 },
+  chip: {
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#333",
+    backgroundColor: "#1E1E1E",
+    marginRight: 8,
+  },
+  chipActive: { backgroundColor: "#1DB954", borderColor: "#1DB954" },
+  chipText: { color: "#ccc", fontSize: 13, fontWeight: "600" },
+  chipTextActive: { color: "#fff" },
 
   item: {
     backgroundColor: "#1E1E1E",
