@@ -252,7 +252,7 @@ const LyricsList = React.memo(({
           duration={firstLineTime}
           currentTime={currentTime}
           onPress={handleLinePress}
-          isActive={activeLineIndex === -1 && currentTime < firstLineTime}
+          isActive={activeLineIndex === -1 && currentTime >= 0.001 && currentTime < firstLineTime}
           isScrubbing={isScrubbing}
           highlightColor={highlightColor}
         />
@@ -404,6 +404,7 @@ export default function SyncedLyricsPlayer({
   // Find the index of the currently active lyric line
   const activeLineIndex = useMemo(() => {
     if (!hasSyncedLyrics) return -1;
+    if (currentTime < 0.001) return -1;
     let activeIndex = -1;
     const adjustedTime = currentTime + 0.3; // Highlight 0.3 seconds faster
     for (let i = 0; i < parsedLines.length; i++) {
@@ -496,11 +497,11 @@ export default function SyncedLyricsPlayer({
     triggerHaptic();
   }, []);
 
-  // Time formatter (mm:ss)
+  // Time formatter (m:ss)
   const formatTime = (timeInSeconds: number) => {
     const mins = Math.floor(timeInSeconds / 60);
     const secs = Math.floor(timeInSeconds % 60);
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
