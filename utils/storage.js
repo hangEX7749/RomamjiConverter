@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const STORAGE_KEY = "@my_stored_lyrics";
 const API_KEY_STORAGE_KEY = "@gemini_api_key";
 const FONT_PREFS_KEY = "@lyric_font_prefs";
+const FOLDERS_KEY = "@library_folders";
 
 // Lyric viewer typography preferences. `fontFamily` is a token resolved to a
 // real platform font inside the useLyricFont hook (system/serif/monospace).
@@ -113,4 +114,129 @@ export const saveFontPrefs = async (prefs) => {
     console.error("Error saving font prefs", e);
     return false;
   }
+};
+
+// --- Library folders (playlist-style; a song can belong to many) ---
+//
+// Folders are stored as an ordered list of names under FOLDERS_KEY so empty
+// folders can exist. A song's membership lives in its own `folders: string[]`
+// field on the saved-song object. Names are unique case-insensitively.
+
+const normFolderName = (name) => (name || "").trim();
+
+export const getFolders = async () => {
+  try {
+    const raw = await AsyncStorage.getItem(FOLDERS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    console.error("Error fetching folders", e);
+    return [];
+  }
+};
+
+const writeFolders = async (folders) => {
+  await AsyncStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
+};
+
+// Persist mutations to the songs array in one write.
+const writeSongs = async (songs) => {
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(songs));
+};
+
+// Returns "created" | "exists" | "invalid".
+export const createFolder = async (name) => {
+  const clean = normFolderName(name);
+  if (!clean) return "invalid";
+  const folders = await getFolders();
+  if (folders.some((f) => f.toLowerCase() === clean.toLowerCase())) {
+    return "exists";
+  }
+  folders.push(clean);
+  await writeFolders(folders);
+  return "created";
+};
+
+// Returns "renamed" | "exists" | "missing" | "invalid".
+export const renameFolder = async (oldName, newName) => {
+  const clean = normFolderName(newName);
+  if (!clean) return "invalid";
+  const folders = await getFolders();
+  const collision = folders.some(
+    (f) =>
+      f.toLowerCase() === clean.toLowerCase() &&
+      f.toLowerCase() !== oldName.toLowerCase(),
+  );
+  if (collision) return "exists";
+  const idx = folders.findIndex((f) => f === oldName);
+  if (idx === -1) return "missing";
+  folders[idx] = clean;
+  await writeFolders(folders);
+
+  // Update membership on every song that referenced the old name.
+  const songs = await getSavedSongs();
+  let changed = false;
+  for (const s of songs) {
+    if (Array.isArray(s.folders) && s.folders.includes(oldName)) {
+      s.folders = s.folders.map((f) => (f === oldName ? clean : f));
+      changed = true;
+    }
+  }
+  if (changed) await writeSongs(songs);
+  return "renamed";
+};
+
+// Deletes the folder but keeps the songs — only strips the tag. Returns the
+// remaining folders list.
+export const deleteFolder = async (name) => {
+  const folders = await getFolders();
+  const remaining = folders.filter((f) => f !== name);
+  await writeFolders(remaining);
+
+  const songs = await getSavedSongs();
+  let changed = false;
+  for (const s of songs) {
+    if (Array.isArray(s.folders) && s.folders.includes(name)) {
+      s.folders = s.folders.filter((f) => f !== name);
+      changed = true;
+    }
+  }
+  if (changed) await writeSongs(songs);
+  return remaining;
+};
+
+// Union the given names into the folders list (used on import). Returns the
+// updated list.
+export const addFolders = async (names) => {
+  const folders = await getFolders();
+  const lower = new Set(folders.map((f) => f.toLowerCase()));
+  let changed = false;
+  for (const n of names) {
+    const clean = normFolderName(n);
+    if (clean && !lower.has(clean.toLowerCase())) {
+      folders.push(clean);
+      lower.add(clean.toLowerCase());
+      changed = true;
+    }
+  }
+  if (changed) await writeFolders(folders);
+  return folders;
+};
+
+// Replace a song's folder membership. Returns true if the song was found.
+export const setSongFolders = async (title, artist, folderNames) => {
+  const songs = await getSavedSongs();
+  const idx = songs.findIndex(
+    (s) => s.title === title && s.artist === artist,
+  );
+  if (idx === -1) return false;
+  songs[idx].folders = [...new Set(folderNames)];
+  await writeSongs(songs);
+  return true;
+};
+
+// Read a single song's current folder membership.
+export const getSongFolders = async (title, artist) => {
+  const songs = await getSavedSongs();
+  const song = songs.find((s) => s.title === title && s.artist === artist);
+  return Array.isArray(song?.folders) ? song.folders : [];
 };

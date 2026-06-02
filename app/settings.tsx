@@ -22,6 +22,7 @@ import {
   HIGHLIGHT_COLOR_OPTIONS,
   LINE_HEIGHT_MAX,
   LINE_HEIGHT_MIN,
+  addFolders,
   getApiKey,
   getFontPrefs,
   saveApiKey,
@@ -205,6 +206,16 @@ export default function SettingsScreen() {
         const status = await saveSong(song);
         if (status === "saved") imported++;
         else skipped++;
+      }
+
+      // Reconstruct the folder list: union the envelope's folders (v2+) with
+      // every folder name referenced by an imported song, so chips reappear.
+      const envelopeFolders = Array.isArray(parsed?.folders) ? parsed.folders : [];
+      const songFolders = songsToImport.flatMap((s) =>
+        Array.isArray(s?.folders) ? s.folders : [],
+      );
+      if (envelopeFolders.length || songFolders.length) {
+        await addFolders([...envelopeFolders, ...songFolders]);
       }
       Alert.alert(
         "Import complete",

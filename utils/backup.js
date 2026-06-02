@@ -1,17 +1,22 @@
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { Platform } from "react-native";
+import { getFolders } from "./storage";
 
 // Backup envelope version. Bump when the saved-song shape changes so importers
 // can detect and migrate older files.
-export const BACKUP_VERSION = 1;
+// v2: added top-level `folders` (folder names) so empty folders survive.
+export const BACKUP_VERSION = 2;
 
 // Wrap the songs array in a versioned envelope. Keeping app/version/exportedAt
 // alongside the data lets the importer recognise the format in the future.
-export const buildBackupEnvelope = (songs) => ({
+// `folders` carries the library's folder names so empty folders (and the chip
+// list) survive a round-trip; per-song membership already rides inside `songs`.
+export const buildBackupEnvelope = (songs, folders = []) => ({
   app: "RomajiFy",
   version: BACKUP_VERSION,
   exportedAt: new Date().toISOString(),
+  folders,
   songs,
 });
 
@@ -28,8 +33,10 @@ const backupBaseName = () => {
 
 export const backupFileName = () => `${backupBaseName()}.json`;
 
-// Serialise the selected songs into the backup JSON string.
-const backupJson = (songs) => JSON.stringify(buildBackupEnvelope(songs));
+// Serialise the selected songs (plus the full folders list) into the backup
+// JSON string.
+const backupJson = async (songs) =>
+  JSON.stringify(buildBackupEnvelope(songs, await getFolders()));
 
 // Write the given songs to a temp file and open the OS share sheet.
 //
@@ -41,7 +48,7 @@ const backupJson = (songs) => JSON.stringify(buildBackupEnvelope(songs));
 export const shareSongs = async (songs) => {
   const fileUri = FileSystem.cacheDirectory + backupFileName();
   try {
-    await FileSystem.writeAsStringAsync(fileUri, backupJson(songs));
+    await FileSystem.writeAsStringAsync(fileUri, await backupJson(songs));
   } catch (e) {
     console.error("Export Error (write):", e);
     return { ok: false, stage: "write" };
@@ -94,7 +101,7 @@ export const saveSongsToDevice = async (songs) => {
       backupBaseName(),
       "application/json",
     );
-    await FileSystem.writeAsStringAsync(fileUri, backupJson(songs), {
+    await FileSystem.writeAsStringAsync(fileUri, await backupJson(songs), {
       encoding: FileSystem.EncodingType.UTF8,
     });
   } catch (e) {

@@ -1,7 +1,7 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -11,6 +11,7 @@ import { useLyricFont } from "../hooks/use-lyric-font";
 import { saveSong } from "../utils/storage";
 import { alignRomajiWithTimestamps } from "../utils/syncLyrics";
 import SyncedLyricsPlayer from "../components/SyncedLyricsPlayer";
+import FolderPickerModal from "../components/FolderPickerModal";
 
 export default function SavedLyricsScreen() {
   const { artist, title, lyrics, preComputedRomaji, syncedLyrics, duration } = useLocalSearchParams();
@@ -22,6 +23,7 @@ export default function SavedLyricsScreen() {
   const [romajiCache, setRomajiCache] = useState(preComputedRomaji || null);
   const [isRomajiActive, setIsRomajiActive] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [folderVisible, setFolderVisible] = useState(false);
 
   const cleanSyncedLyrics = syncedLyrics && syncedLyrics !== "null" ? (syncedLyrics as string) : null;
   const parsedDuration = duration ? Number(duration) : undefined;
@@ -80,16 +82,25 @@ export default function SavedLyricsScreen() {
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
 
-        {romajiCache && (
+        <View style={styles.navRight}>
+          {romajiCache && (
+            <TouchableOpacity
+              onPress={handleToggleRomaji}
+              style={[styles.romajiBtn, isRomajiActive && styles.romajiBtnActive]}
+            >
+              <Text style={styles.romajiBtnText}>
+                {isRomajiActive ? "Show Original" : "Show Romaji"}
+              </Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
-            onPress={handleToggleRomaji}
-            style={[styles.romajiBtn, isRomajiActive && styles.romajiBtnActive]}
+            onPress={() => setFolderVisible(true)}
+            style={styles.folderBtn}
+            accessibilityLabel="Folders"
           >
-            <Text style={styles.romajiBtnText}>
-              {isRomajiActive ? "Show Original" : "Show Romaji"}
-            </Text>
+            <Ionicons name="folder-outline" size={20} color="#1DB954" />
           </TouchableOpacity>
-        )}
+        </View>
       </View>
 
       <SyncedLyricsPlayer
@@ -100,6 +111,13 @@ export default function SavedLyricsScreen() {
         duration={parsedDuration}
         lyricStyle={lyricFont}
         autoScroll={lyricFont.autoScroll}
+      />
+
+      <FolderPickerModal
+        visible={folderVisible}
+        title={title as string}
+        artist={artist as string}
+        onClose={() => setFolderVisible(false)}
       />
     </View>
   );
@@ -125,6 +143,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   backText: { color: "#1DB954", fontSize: 14, fontWeight: "bold" },
+
+  navRight: { flexDirection: "row", alignItems: "center" },
+  folderBtn: {
+    backgroundColor: "#1E1E1E",
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#1DB954",
+    marginLeft: 10,
+  },
 
   romajiBtn: {
     backgroundColor: "#333",
