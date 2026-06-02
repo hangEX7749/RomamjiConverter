@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { exportSongs } from "../utils/backup";
+import { saveSongsToDevice, shareSongs } from "../utils/backup";
 import { getSavedSongs } from "../utils/storage";
 
 type SavedSong = {
@@ -34,7 +34,9 @@ export default function ExportSelectScreen() {
   // Set of songKey() values that are checked. Empty by default — the user picks
   // what to export.
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [exporting, setExporting] = useState(false);
+  // Which action is in flight, if any — disables both buttons and labels the
+  // active one ("Sharing…" / "Saving…").
+  const [busy, setBusy] = useState<null | "share" | "save">(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,30 +89,46 @@ export default function ExportSelectScreen() {
     });
   };
 
-  const handleExport = async () => {
-    if (selected.size === 0 || exporting) return;
+  // Map a failed export result to a user-facing alert. "permission" means the
+  // user dismissed the Android folder picker, which is not an error — stay quiet.
+  const reportFailure = (stage?: string) => {
+    if (stage === "permission") return;
+    if (stage === "unavailable") {
+      Alert.alert("Unavailable", "Sharing is not available on this device.");
+    } else if (stage === "write") {
+      Alert.alert(
+        "Export failed",
+        "Could not write the backup file. Check device storage.",
+      );
+    } else {
+      Alert.alert("Export failed", "Could not open the share sheet.");
+    }
+  };
+
+  const runExport = async (
+    action: "share" | "save",
+    fn: (songs: SavedSong[]) => Promise<{ ok: boolean; stage?: string }>,
+  ) => {
+    if (selected.size === 0 || busy) return;
     const chosen = songs.filter((s) => selected.has(songKey(s)));
-    setExporting(true);
+    setBusy(action);
     try {
-      const result = await exportSongs(chosen);
+      const result = await fn(chosen);
       if (result.ok) {
+        if (action === "save") {
+          Alert.alert("Saved", "Your backup has been saved.");
+        }
         router.back();
         return;
       }
-      if (result.stage === "unavailable") {
-        Alert.alert("Unavailable", "Sharing is not available on this device.");
-      } else if (result.stage === "write") {
-        Alert.alert(
-          "Export failed",
-          "Could not write the backup file. Check device storage.",
-        );
-      } else {
-        Alert.alert("Export failed", "Could not open the share sheet.");
-      }
+      reportFailure(result.stage);
     } finally {
-      setExporting(false);
+      setBusy(null);
     }
   };
+
+  const handleShare = () => runExport("share", shareSongs);
+  const handleSave = () => runExport("save", saveSongsToDevice);
 
   const isEmpty = songs.length === 0;
 
@@ -180,20 +198,38 @@ export default function ExportSelectScreen() {
           />
 
           <View style={styles.footer}>
-            <TouchableOpacity
-              onPress={handleExport}
-              disabled={selected.size === 0 || exporting}
-              style={[
-                styles.exportBtn,
-                (selected.size === 0 || exporting) && styles.exportBtnDisabled,
-              ]}
-            >
-              <Text style={styles.exportBtnText}>
-                {exporting
-                  ? "Exporting…"
-                  : `Export ${selected.size} song${selected.size === 1 ? "" : "s"}`}
-              </Text>
-            </TouchableOpacity>
+            <Text style={styles.footerCount}>
+              {selected.size} song{selected.size === 1 ? "" : "s"} selected
+            </Text>
+            <View style={styles.footerButtons}>
+              <TouchableOpacity
+                onPress={handleShare}
+                disabled={selected.size === 0 || busy !== null}
+                style={[
+                  styles.actionBtn,
+                  styles.shareBtn,
+                  (selected.size === 0 || busy !== null) && styles.actionBtnDisabled,
+                ]}
+              >
+                <Text style={styles.shareBtnText}>
+                  {busy === "share" ? "Sharing…" : "Share"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSave}
+                disabled={selected.size === 0 || busy !== null}
+                style={[
+                  styles.actionBtn,
+                  styles.saveBtn,
+                  { marginLeft: 12 },
+                  (selected.size === 0 || busy !== null) && styles.actionBtnDisabled,
+                ]}
+              >
+                <Text style={styles.saveBtnText}>
+                  {busy === "save" ? "Saving…" : "Save to device"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </>
       )}
@@ -280,12 +316,27 @@ const styles = StyleSheet.create({
     right: 20,
     bottom: 30,
   },
-  exportBtn: {
-    backgroundColor: "#1DB954",
+  footerCount: {
+    color: "#888",
+    fontSize: 13,
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  footerButtons: { flexDirection: "row" },
+  actionBtn: {
+    flex: 1,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: "center",
+    justifyContent: "center",
   },
-  exportBtnDisabled: { backgroundColor: "#1E1E1E", opacity: 0.6 },
-  exportBtnText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  actionBtnDisabled: { opacity: 0.5 },
+  shareBtn: { backgroundColor: "#1DB954" },
+  shareBtnText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  saveBtn: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "#1DB954",
+  },
+  saveBtnText: { color: "#1DB954", fontSize: 16, fontWeight: "bold" },
 });
