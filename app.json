@@ -25,7 +25,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.mamarduker.romajify",
-      "versionCode": 3
+      "versionCode": 4
     },
     "web": {
       "output": "static",
