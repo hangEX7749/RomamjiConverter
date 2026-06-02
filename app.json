@@ -24,7 +24,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.mamarduker.romajify"
+      "package": "com.mamarduker.romajify",
+      "versionCode": 2
     },
     "web": {
       "output": "static",
