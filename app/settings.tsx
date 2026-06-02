@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { useRouter } from "expo-router";
-import * as Sharing from "expo-sharing";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -25,7 +24,6 @@ import {
   LINE_HEIGHT_MIN,
   getApiKey,
   getFontPrefs,
-  getSavedSongs,
   saveApiKey,
   saveFontPrefs,
   saveSong,
@@ -176,25 +174,10 @@ export default function SettingsScreen() {
   };
 
   // --- Backup / restore ---
-  const handleExport = async () => {
-    try {
-      const songs = await getSavedSongs();
-      if (songs.length === 0) {
-        Alert.alert("Nothing to export", "Your library is empty.");
-        return;
-      }
-      const fileUri =
-        FileSystem.documentDirectory + `lyrics_backup_${Date.now()}.json`;
-      await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(songs));
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri);
-      } else {
-        Alert.alert("Unavailable", "Sharing is not available on this device.");
-      }
-    } catch (e) {
-      console.error("Export Error:", e);
-      Alert.alert("Error", "An error occurred during export.");
-    }
+  // Export now happens on a dedicated screen where the user picks which songs
+  // to include; this just navigates there.
+  const handleExport = () => {
+    router.push("/exportSelect");
   };
 
   const handleImport = async () => {
@@ -206,15 +189,28 @@ export default function SettingsScreen() {
       if (result.canceled) return;
       const uri = result.assets[0].uri;
       const content = await FileSystem.readAsStringAsync(uri);
-      const songsToImport = JSON.parse(content);
+      const parsed = JSON.parse(content);
+
+      // Accept both the new envelope ({ app, version, songs }) and the legacy
+      // bare-array format so older backups still import.
+      const songsToImport = Array.isArray(parsed) ? parsed : parsed?.songs;
       if (!Array.isArray(songsToImport)) {
-        Alert.alert("Invalid file", "The backup file is not a valid songs array.");
+        Alert.alert("Invalid file", "The backup file is not a valid RomajiFy backup.");
         return;
       }
+
+      let imported = 0;
+      let skipped = 0;
       for (const song of songsToImport) {
-        await saveSong(song);
+        const status = await saveSong(song);
+        if (status === "saved") imported++;
+        else skipped++;
       }
-      Alert.alert("Imported", `Imported ${songsToImport.length} songs.`);
+      Alert.alert(
+        "Import complete",
+        `Imported ${imported} song${imported === 1 ? "" : "s"}` +
+          (skipped > 0 ? `, skipped ${skipped} duplicate${skipped === 1 ? "" : "s"}.` : "."),
+      );
     } catch (e) {
       console.error("Import Error:", e);
       Alert.alert(
