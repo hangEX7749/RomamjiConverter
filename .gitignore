@@ -45,4 +45,7 @@ app-example
 /ios
 /android
 
+# built APKs
+/apk/
+
 .claude/
