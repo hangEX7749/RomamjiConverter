@@ -16,6 +16,8 @@ type SavedSong = {
   artist: string;
   lyrics: string;
   romaji?: string;
+  syncedLyrics?: string | null;
+  duration?: number;
 };
 
 export default function LibraryScreen() {
@@ -111,6 +113,8 @@ export default function LibraryScreen() {
                     title: item.title,
                     lyrics: item.lyrics,
                     preComputedRomaji: item.romaji,
+                    syncedLyrics: item.syncedLyrics || null,
+                    duration: item.duration || 0,
                   },
                 })
               }
