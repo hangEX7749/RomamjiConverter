@@ -162,11 +162,17 @@ export default function SearchScreen() {
         [
           {
             text: "Get Free Key",
-            onPress: () =>
-              Linking.openURL(
-                "https://rapidapi.com/diyorbekkanal/api/shazam-api-free/playground/apiendpoint_4349b50d-a267-47c7-823e-49b8e8680883"
-              ),
-          },
+            onPress: async () => {
+              const url =
+                "https://rapidapi.com/diyorbekkanal/api/shazam-api-free/playground/apiendpoint_4349b50d-a267-47c7-823e-49b8e8680883";
+              const canOpen = await Linking.canOpenURL(url);
+              if (!canOpen) {
+                Alert.alert("Error", "Unable to open RapidAPI in a browser.");
+                return;
+              }
+              await Linking.openURL(url);
+            },
+          }
           { text: "Go to Settings", onPress: goToSettings },
           { text: "Cancel", style: "cancel" },
         ]
