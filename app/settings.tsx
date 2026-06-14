@@ -345,11 +345,16 @@ export default function SettingsScreen() {
 
           {!hasRapidKey && (
             <TouchableOpacity
-              onPress={() =>
-                Linking.openURL(
-                  "https://rapidapi.com/diyorbekkanal/api/shazam-api-free/playground/apiendpoint_4349b50d-a267-47c7-823e-49b8e8680883"
-                )
-              }
+              onPress={async () => {
+                const url =
+                  "https://rapidapi.com/diyorbekkanal/api/shazam-api-free/playground/apiendpoint_4349b50d-a267-47c7-823e-49b8e8680883";
+                const canOpen = await Linking.canOpenURL(url);
+                if (!canOpen) {
+                  Alert.alert("Error", "Unable to open RapidAPI in a browser.");
+                  return;
+                }
+                await Linking.openURL(url);
+              }}
               style={{ marginTop: 6, marginBottom: 10 }}
             >
               <Text style={{ color: "#1DB954", fontSize: 12, textDecorationLine: "underline" }}>
