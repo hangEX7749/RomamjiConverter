@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { getRecordingPermissionsAsync, RecordingPresets, requestRecordingPermissionsAsync, useAudioRecorder } from "expo-audio";
+import * as FileSystem from "expo-file-system/legacy";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -144,14 +145,17 @@ export default function SearchScreen() {
 
   const goToSettings = () => router.push("/settings");
 
-  // Cleanup timers on unmount
+  // Cleanup timers and recording on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
+      if (recorder && recorder.isRecording) {
+        recorder.stop().catch(() => {});
+      }
     };
-  }, []);
+  }, [recorder]);
 
   const startRecording = async () => {
     const rapidKey = await getRapidApiKey();
@@ -227,10 +231,11 @@ export default function SearchScreen() {
 
     setIsRecording(false);
     setIsIdentifying(true);
+    let audioUri: string | null = null;
 
     try {
       await recorder.stop();
-      const audioUri = recorder.uri;
+      audioUri = recorder.uri;
 
       if (!audioUri) {
         throw new Error("No recording file found.");
@@ -348,6 +353,9 @@ export default function SearchScreen() {
     } finally {
       setLoading(false);
       setIsIdentifying(false);
+      if (audioUri) {
+        FileSystem.deleteAsync(audioUri, { idempotent: true }).catch(() => {});
+      }
     }
   };
 
