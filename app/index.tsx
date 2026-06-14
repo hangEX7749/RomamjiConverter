@@ -172,7 +172,7 @@ export default function SearchScreen() {
               }
               await Linking.openURL(url);
             },
-          }
+          },
           { text: "Go to Settings", onPress: goToSettings },
           { text: "Cancel", style: "cancel" },
         ]
