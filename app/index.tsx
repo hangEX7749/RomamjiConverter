@@ -340,6 +340,7 @@ export default function SearchScreen() {
     } catch (error: any) {
       Alert.alert("Error", error.message || "An error occurred during song recognition.");
     } finally {
+      setLoading(false);
       setIsIdentifying(false);
     }
   };
