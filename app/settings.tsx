@@ -5,12 +5,13 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
-  Switch,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -25,8 +26,10 @@ import {
   addFolders,
   getApiKey,
   getFontPrefs,
+  getRapidApiKey,
   saveApiKey,
   saveFontPrefs,
+  saveRapidApiKey,
   saveSong,
 } from "../utils/storage";
 
@@ -73,6 +76,10 @@ export default function SettingsScreen() {
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [hasKey, setHasKey] = useState(false);
 
+  // --- RapidAPI key state ---
+  const [rapidApiKeyInput, setRapidApiKeyInput] = useState("");
+  const [hasRapidKey, setHasRapidKey] = useState(false);
+
   // --- Font prefs state ---
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_PREFS.fontSize);
   const [fontFamily, setFontFamily] = useState(DEFAULT_FONT_PREFS.fontFamily);
@@ -100,10 +107,12 @@ export default function SettingsScreen() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [key, prefs] = await Promise.all([getApiKey(), getFontPrefs()]);
+      const [key, rapidKey, prefs] = await Promise.all([getApiKey(), getRapidApiKey(), getFontPrefs()]);
       if (cancelled) return;
       setApiKeyInput(key || "");
       setHasKey(!!key);
+      setRapidApiKeyInput(rapidKey || "");
+      setHasRapidKey(!!rapidKey);
       setFontSize(prefs.fontSize);
       setFontFamily(prefs.fontFamily);
       setLineHeight(prefs.lineHeight);
@@ -153,6 +162,36 @@ export default function SettingsScreen() {
           await saveApiKey("");
           setApiKeyInput("");
           setHasKey(false);
+        },
+      },
+    ]);
+  };
+
+  // --- RapidAPI key handlers ---
+  const handleSaveRapidKey = async () => {
+    const trimmed = rapidApiKeyInput.trim();
+    const ok = await saveRapidApiKey(trimmed);
+    if (ok) {
+      setHasRapidKey(!!trimmed);
+      Alert.alert(
+        "Saved",
+        trimmed ? "RapidAPI key updated." : "RapidAPI key cleared.",
+      );
+    } else {
+      Alert.alert("Error", "Failed to save the RapidAPI key.");
+    }
+  };
+
+  const handleClearRapidKey = async () => {
+    Alert.alert("Clear RapidAPI key?", "This will remove your saved RapidAPI key.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Clear",
+        style: "destructive",
+        onPress: async () => {
+          await saveRapidApiKey("");
+          setRapidApiKeyInput("");
+          setHasRapidKey(false);
         },
       },
     ]);
@@ -220,7 +259,7 @@ export default function SettingsScreen() {
       Alert.alert(
         "Import complete",
         `Imported ${imported} song${imported === 1 ? "" : "s"}` +
-          (skipped > 0 ? `, skipped ${skipped} duplicate${skipped === 1 ? "" : "s"}.` : "."),
+        (skipped > 0 ? `, skipped ${skipped} duplicate${skipped === 1 ? "" : "s"}.` : "."),
       );
     } catch (e) {
       console.error("Import Error:", e);
@@ -285,6 +324,72 @@ export default function SettingsScreen() {
                 style={[
                   styles.btnGhostText,
                   !hasKey && { color: "#555" },
+                ]}
+              >
+                Clear
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* === RapidAPI Key === */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Shazam RapidAPI Key</Text>
+          <Text style={styles.sectionSubtitle}>
+            Used to recognize songs from the microphone. Stored only on this device.
+            {"  "}
+            <Text style={{ color: hasRapidKey ? "#1DB954" : "#e0a300" }}>
+              {hasRapidKey ? "✓ Key saved" : "⚠ No key set"}
+            </Text>
+          </Text>
+
+          {!hasRapidKey && (
+            <TouchableOpacity
+              onPress={async () => {
+                const url =
+                  "https://rapidapi.com/diyorbekkanal/api/shazam-api-free/playground/apiendpoint_4349b50d-a267-47c7-823e-49b8e8680883";
+                const canOpen = await Linking.canOpenURL(url);
+                if (!canOpen) {
+                  Alert.alert("Error", "Unable to open RapidAPI in a browser.");
+                  return;
+                }
+                await Linking.openURL(url);
+              }}
+              style={{ marginTop: 6, marginBottom: 10 }}
+            >
+              <Text style={{ color: "#1DB954", fontSize: 12, textDecorationLine: "underline" }}>
+                {"Copy 'x-rapidapi-key' from code snippets on the right."}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <TextInput
+            style={styles.input}
+            placeholder="Paste your RapidAPI key here"
+            placeholderTextColor="#555"
+            value={rapidApiKeyInput}
+            onChangeText={setRapidApiKeyInput}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+
+          <View style={styles.row}>
+            <TouchableOpacity
+              onPress={handleSaveRapidKey}
+              style={[styles.btn, styles.btnPrimary, { flex: 1 }]}
+            >
+              <Text style={styles.btnPrimaryText}>Save Key</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleClearRapidKey}
+              style={[styles.btn, styles.btnGhost, { marginLeft: 10 }]}
+              disabled={!hasRapidKey}
+            >
+              <Text
+                style={[
+                  styles.btnGhostText,
+                  !hasRapidKey && { color: "#555" },
                 ]}
               >
                 Clear

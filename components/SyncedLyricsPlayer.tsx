@@ -135,7 +135,7 @@ const LyricLine = React.memo(({
 
   useEffect(() => {
     if (isEmojiInterval && isActive && duration && duration > 0 && currentTime !== undefined) {
-      const progress = Math.max(0, Math.min(1, (currentTime - time) / duration));
+      const progress = Math.max(0, Math.min(1, (currentTime + 0.3 - time) / duration));
       const remaining = 1 - progress;
       const diff = Math.abs(remaining - (progressAnim as any)._value);
       if (diff > 0.15) {
@@ -249,10 +249,10 @@ const LyricsList = React.memo(({
     >
       {showIntro && (
         <IntroCountdown
-          duration={firstLineTime}
+          duration={firstLineTime - 0.3}
           currentTime={currentTime}
           onPress={handleLinePress}
-          isActive={activeLineIndex === -1 && currentTime >= 0.001 && currentTime < firstLineTime}
+          isActive={activeLineIndex === -1 && currentTime >= 0.001 && currentTime < firstLineTime - 0.3}
           isScrubbing={isScrubbing}
           highlightColor={highlightColor}
         />
@@ -310,6 +310,7 @@ interface SyncedLyricsPlayerProps {
   headerRightActions?: React.ReactNode;
   lyricStyle?: any;
   autoScroll?: boolean;
+  initialTime?: number; // Optional initial playback time in seconds
 }
 
 export default function SyncedLyricsPlayer({
@@ -321,10 +322,11 @@ export default function SyncedLyricsPlayer({
   headerRightActions,
   lyricStyle,
   autoScroll = true,
+  initialTime = 0,
 }: SyncedLyricsPlayerProps) {
   const highlightColor = lyricStyle?.highlightColor || "#FFFFFF";
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(initialTime > 0);
+  const [currentTime, setCurrentTime] = useState(initialTime);
   const [progressBarWidth, setProgressBarWidth] = useState(0);
   const [isScrubbing, setIsScrubbing] = useState(false);
 
