@@ -21,12 +21,24 @@ export const recognizeMusic = async (audioUri) => {
   const apiKey = savedKey.trim();
 
   const data = new FormData();
+
+  const uriNoQuery = String(audioUri).split("?")[0];
+  const dot = uriNoQuery.lastIndexOf(".");
+  const ext = dot !== -1 ? uriNoQuery.slice(dot + 1).toLowerCase() : "";
+
+  const mimeType =
+    ext === "m4a" || ext === "mp4" ? "audio/mp4" :
+    ext === "mp3" ? "audio/mpeg" :
+    ext === "wav" ? "audio/wav" :
+    ext === "ogg" || ext === "opus" ? "audio/ogg" :
+    "application/octet-stream";
+
   // In React Native, FormData file attachment requires this specific object structure:
   // @ts-ignore
   data.append("upload_file", {
     uri: audioUri,
-    type: "audio/ogg",
-    name: "recording.ogg",
+    type: mimeType,
+    name: `recording${ext ? `.${ext}` : ""}`,
   });
 
   const options = {
