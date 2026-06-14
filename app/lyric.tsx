@@ -1,22 +1,21 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
+import SyncedLyricsPlayer from "../components/SyncedLyricsPlayer";
 import { useLyricFont } from "../hooks/use-lyric-font";
 import { convertToRomaji } from "../utils/romaji";
 import { saveSong } from "../utils/storage";
 import { alignRomajiWithTimestamps } from "../utils/syncLyrics";
-import SyncedLyricsPlayer from "../components/SyncedLyricsPlayer";
 
 export default function LyricsScreen() {
-  const { artist, title, lyrics, preComputedRomaji, syncedLyrics, duration } = useLocalSearchParams();
+  const { artist, title, lyrics, preComputedRomaji, syncedLyrics, duration, startTime, isFromMic } = useLocalSearchParams();
   const router = useRouter();
   const lyricFont = useLyricFont();
 
@@ -28,6 +27,7 @@ export default function LyricsScreen() {
 
   const cleanSyncedLyrics = syncedLyrics && syncedLyrics !== "null" ? (syncedLyrics as string) : null;
   const parsedDuration = duration ? Number(duration) : undefined;
+  const parsedStartTime = startTime ? Number(startTime) : 0;
 
   const alignedSyncedLyrics = useMemo(() => {
     if (isRomajiActive && romajiCache && cleanSyncedLyrics) {
@@ -35,6 +35,36 @@ export default function LyricsScreen() {
     }
     return cleanSyncedLyrics;
   }, [isRomajiActive, romajiCache, cleanSyncedLyrics]);
+
+  // Automatically trigger conversion to Romaji on mount if identified via mic
+  useEffect(() => {
+    if (preComputedRomaji) {
+      setDisplayedLyrics(preComputedRomaji);
+      setIsRomajiActive(true);
+      return;
+    }
+
+    if (isFromMic === "true") {
+      const autoTranslate = async () => {
+        if (!lyrics || lyrics === "No lyrics found.") return;
+        setConverting(true);
+        try {
+          const result = await convertToRomaji(lyrics as string);
+          if (result && result.trim().length > 0) {
+            setRomajiCache(result);
+            setDisplayedLyrics(result);
+            setIsRomajiActive(true);
+          }
+        } catch {
+          // Auto-translation failed silently
+        } finally {
+          setConverting(false);
+        }
+      };
+
+      autoTranslate();
+    }
+  }, [lyrics, preComputedRomaji, isFromMic]);
 
   const handleToggleRomaji = async () => {
     // If we are currently showing Romaji, switch back to original
@@ -140,6 +170,7 @@ export default function LyricsScreen() {
         duration={parsedDuration}
         lyricStyle={lyricFont}
         autoScroll={lyricFont.autoScroll}
+        initialTime={parsedStartTime}
       />
     </View>
   );

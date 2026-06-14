@@ -32,6 +32,8 @@ export const LINE_HEIGHT_MIN = 18;
 export const LINE_HEIGHT_MAX = 48;
 export const FONT_FAMILY_OPTIONS = ["system", "serif", "monospace"];
 
+const RAPIDAPI_KEY_STORAGE_KEY = "@rapidapi_key";
+
 // Save the API key to the device
 export const saveApiKey = async (key) => {
   try {
@@ -49,6 +51,27 @@ export const getApiKey = async () => {
     return await AsyncStorage.getItem(API_KEY_STORAGE_KEY);
   } catch (e) {
     console.error("Error fetching API key", e);
+    return null;
+  }
+};
+
+// Save the RapidAPI key to the device
+export const saveRapidApiKey = async (key) => {
+  try {
+    await AsyncStorage.setItem(RAPIDAPI_KEY_STORAGE_KEY, key);
+    return true;
+  } catch (e) {
+    console.error("Error saving RapidAPI key", e);
+    return false;
+  }
+};
+
+// Retrieve the RapidAPI key from the device
+export const getRapidApiKey = async () => {
+  try {
+    return await AsyncStorage.getItem(RAPIDAPI_KEY_STORAGE_KEY);
+  } catch (e) {
+    console.error("Error fetching RapidAPI key", e);
     return null;
   }
 };
