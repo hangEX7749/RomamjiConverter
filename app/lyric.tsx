@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -9,18 +9,32 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useLyricFont } from "../hooks/use-lyric-font";
 import { convertToRomaji } from "../utils/romaji";
 import { saveSong } from "../utils/storage";
+import { alignRomajiWithTimestamps } from "../utils/syncLyrics";
+import SyncedLyricsPlayer from "../components/SyncedLyricsPlayer";
 
 export default function LyricsScreen() {
-  const { artist, title, lyrics, preComputedRomaji } = useLocalSearchParams();
+  const { artist, title, lyrics, preComputedRomaji, syncedLyrics, duration } = useLocalSearchParams();
   const router = useRouter();
+  const lyricFont = useLyricFont();
 
   // State to manage which version to show
   const [displayedLyrics, setDisplayedLyrics] = useState(lyrics);
   const [romajiCache, setRomajiCache] = useState(preComputedRomaji || null);
   const [isRomajiActive, setIsRomajiActive] = useState(false);
   const [converting, setConverting] = useState(false);
+
+  const cleanSyncedLyrics = syncedLyrics && syncedLyrics !== "null" ? (syncedLyrics as string) : null;
+  const parsedDuration = duration ? Number(duration) : undefined;
+
+  const alignedSyncedLyrics = useMemo(() => {
+    if (isRomajiActive && romajiCache && cleanSyncedLyrics) {
+      return alignRomajiWithTimestamps(romajiCache as string, cleanSyncedLyrics);
+    }
+    return cleanSyncedLyrics;
+  }, [isRomajiActive, romajiCache, cleanSyncedLyrics]);
 
   const handleToggleRomaji = async () => {
     // If we are currently showing Romaji, switch back to original
@@ -74,6 +88,8 @@ export default function LyricsScreen() {
       title,
       lyrics, // Always save the original
       romaji: romajiCache, // This will be null if never converted, or the string if it was
+      syncedLyrics: cleanSyncedLyrics,
+      duration: parsedDuration,
       isFavorite: true,
     };
 
@@ -116,17 +132,15 @@ export default function LyricsScreen() {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.artist}>{artist}</Text>
-
-      <ScrollView
-        style={styles.lyricsContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.lyricsText}>
-          {displayedLyrics || "No lyrics available for this track."}
-        </Text>
-      </ScrollView>
+      <SyncedLyricsPlayer
+        title={title as string}
+        artist={artist as string}
+        lyrics={displayedLyrics as string}
+        syncedLyrics={alignedSyncedLyrics}
+        duration={parsedDuration}
+        lyricStyle={lyricFont}
+        autoScroll={lyricFont.autoScroll}
+      />
     </View>
   );
 }

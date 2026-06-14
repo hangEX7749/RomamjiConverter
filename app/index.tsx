@@ -1,51 +1,56 @@
-import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Modal,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import RomajiFyLogo from "../components/RomajiFyLogo"; // 1. Import your new Logo Component
+import RomajiFyLogo from "../components/RomajiFyLogo";
 import { searchTracks } from "../services/lyricsApi";
-import { getApiKey, saveApiKey } from "../utils/storage";
+import { getApiKey } from "../utils/storage";
+
+type TrackResult = {
+  romanizedLyrics: null;
+  id: string | number;
+  trackName: string;
+  artistName: string;
+  plainLyrics: string;
+  syncedLyrics?: string | null;
+  duration?: number;
+};
+
+const PAGE_SIZE = 10;
 
 export default function SearchScreen() {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<
-    {
-      romanizedLyrics: null;
-      id: string | number;
-      trackName: string;
-      artistName: string;
-      plainLyrics: string;
-    }[]
-  >([]);
+  // Full result set from LRCLIB; we paginate this locally because the API
+  // doesn't support limit/offset — it always returns every match in one shot.
+  const [allResults, setAllResults] = useState<TrackResult[]>([]);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-
-  const [dropdownVisible, setDropdownVisible] = useState(false);
-  const [apiKeyModalVisible, setApiKeyModalVisible] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState("");
   const [isApiKeyMissing, setIsApiKeyMissing] = useState(false);
 
   const router = useRouter();
 
-  const checkApiKeyStatus = async () => {
-    const key = await getApiKey();
-    setIsApiKeyMissing(!key);
-  };
-
-  useEffect(() => {
-    checkApiKeyStatus();
-  }, []);
+  // Re-check the key whenever the screen regains focus, so the banner clears
+  // immediately after the user saves a key in Settings.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        const key = await getApiKey();
+        if (!cancelled) setIsApiKeyMissing(!key);
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
 
   const handleSearch = async () => {
     if (!query) return;
@@ -53,69 +58,34 @@ export default function SearchScreen() {
     if (isApiKeyMissing) {
       Alert.alert(
         "API Key Required",
-        "Please configure your Gemini API Key in 'Options' to turn Japanese lyrics into Romaji.",
+        "Please add your Gemini API key in Settings to convert Japanese lyrics to Romaji.",
         [{ text: "OK" }],
       );
     }
 
     setLoading(true);
-    setPage(1);
-
-    const data = await searchTracks(query, 1);
-    setResults(data);
-    setHasMore(data.length === 10);
+    const data = await searchTracks(query);
+    setAllResults(data);
+    setVisibleCount(PAGE_SIZE);
     setLoading(false);
   };
 
-  const handleLoadMore = async () => {
-    if (loadingMore || results.length === 0 || !hasMore) return;
-
-    setLoadingMore(true);
-    const nextPage = page + 1;
-    const newData = await searchTracks(query, nextPage);
-
-    if (newData.length > 0) {
-      setResults([...results, ...newData]);
-      setPage(nextPage);
-      setHasMore(newData.length === 10);
-    } else {
-      setHasMore(false);
-    }
-    setLoadingMore(false);
+  const handleLoadMore = () => {
+    setVisibleCount((c) => Math.min(c + PAGE_SIZE, allResults.length));
   };
 
-  const openApiKeySettings = async () => {
-    setDropdownVisible(false);
-    const savedKey = await getApiKey();
-    setApiKeyInput(savedKey || "");
-    setApiKeyModalVisible(true);
-  };
+  const goToSettings = () => router.push("/settings");
 
-  const handleSaveApiKey = async () => {
-    const trimmedKey = apiKeyInput.trim();
-    const success = await saveApiKey(trimmedKey);
-    if (success) {
-      Alert.alert(
-        "Success",
-        trimmedKey ? "API Key updated!" : "API Key cleared.",
-      );
-      setApiKeyModalVisible(false);
-      checkApiKeyStatus();
-    } else {
-      Alert.alert("Error", "Failed to save the API key.");
-    }
-  };
+  const results = allResults.slice(0, visibleCount);
+  const hasMore = visibleCount < allResults.length;
 
   return (
     <View style={styles.container}>
-      {/* Combined Header Row */}
       <View style={styles.headerRow}>
-        {/* Left Side: Brand Logo */}
         <View style={styles.logoContainer}>
           <RomajiFyLogo width={160} height={48} />
         </View>
 
-        {/* Right Side: Action Actions Actions */}
         <View style={styles.rightActions}>
           <TouchableOpacity
             onPress={() => router.push("./library")}
@@ -124,35 +94,20 @@ export default function SearchScreen() {
             <Text style={styles.libraryText}>📚 Library</Text>
           </TouchableOpacity>
 
-          <View>
-            <TouchableOpacity
-              onPress={() => setDropdownVisible((v) => !v)}
-              style={styles.optionsToggleBtn}
-            >
-              <Text style={styles.optionsToggleText}>Options ▾</Text>
-            </TouchableOpacity>
-
-            {dropdownVisible && (
-              <View style={styles.dropdownMenu}>
-                <TouchableOpacity
-                  onPress={openApiKeySettings}
-                  style={styles.dropdownItem}
-                >
-                  <Text style={styles.dropdownText}>🔑 Gemini API Key</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
+          <TouchableOpacity
+            onPress={goToSettings}
+            style={styles.iconBtn}
+            accessibilityLabel="Settings"
+          >
+            <Text style={styles.iconBtnText}>⚙</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
       {isApiKeyMissing && (
-        <TouchableOpacity
-          style={styles.warningBanner}
-          onPress={openApiKeySettings}
-        >
+        <TouchableOpacity style={styles.warningBanner} onPress={goToSettings}>
           <Text style={styles.warningText}>
-            ⚠️ Gemini API Key missing. Tap here to set it up.
+            ⚠️ Gemini API Key missing. Tap to open Settings.
           </Text>
         </TouchableOpacity>
       )}
@@ -186,6 +141,8 @@ export default function SearchScreen() {
                     artist: item.artistName,
                     title: item.trackName,
                     lyrics: item.plainLyrics,
+                    syncedLyrics: item.syncedLyrics || null,
+                    duration: item.duration || 0,
                     preComputedRomaji: item.romanizedLyrics || null,
                   },
                 })
@@ -200,13 +157,8 @@ export default function SearchScreen() {
               <TouchableOpacity
                 style={styles.loadMoreButton}
                 onPress={handleLoadMore}
-                disabled={loadingMore}
               >
-                {loadingMore ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.loadMoreText}>Load More Results</Text>
-                )}
+                <Text style={styles.loadMoreText}>Load More Results</Text>
               </TouchableOpacity>
             ) : results.length > 0 && !hasMore ? (
               <View style={styles.endMessage}>
@@ -217,50 +169,6 @@ export default function SearchScreen() {
           contentContainerStyle={{ paddingBottom: 40 }}
         />
       )}
-
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={apiKeyModalVisible}
-        onRequestClose={() => setApiKeyModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalHeader}>Gemini API Key Settings</Text>
-            <Text style={styles.modalSubtext}>
-              Insert your personal Gemini API key here. Leave it blank and save
-              to delete/remove it.
-            </Text>
-
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Paste your AIzaSy... key here"
-              placeholderTextColor="#555"
-              value={apiKeyInput}
-              onChangeText={setApiKeyInput}
-              secureTextEntry={true}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-
-            <View style={styles.modalButtonsRow}>
-              <TouchableOpacity
-                onPress={() => setApiKeyModalVisible(false)}
-                style={[styles.modalBtn, styles.modalCancelBtn]}
-              >
-                <Text style={styles.modalCancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleSaveApiKey}
-                style={[styles.modalBtn, styles.modalSaveBtn]}
-              >
-                <Text style={styles.modalSaveBtnText}>Save Key</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -279,16 +187,14 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     width: "100%",
   },
-  // Keeps the logo safely tight on the left margin
   logoContainer: {
     justifyContent: "center",
-    marginLeft: -15, // Offsets the internal SVG canvas whitespace for alignment
+    marginLeft: -15,
   },
-  // Groups your links and buttons horizontally on the right side
   rightActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12, // Creates clean, even spacing between Library and Options
+    gap: 12,
   },
   libraryButton: {
     paddingVertical: 6,
@@ -299,42 +205,17 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 14,
   },
-  optionsToggleBtn: {
+  iconBtn: {
     backgroundColor: "#1E1E1E",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 0.5,
     borderColor: "#444",
   },
-  optionsToggleText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  dropdownMenu: {
-    position: "absolute",
-    right: 0,
-    top: 35,
-    backgroundColor: "#1E1E1E",
-    borderRadius: 10,
-    borderWidth: 0.5,
-    borderColor: "#333",
-    minWidth: 150,
-    zIndex: 999,
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-  },
-  dropdownItem: {
-    padding: 12,
-  },
-  dropdownText: {
-    color: "#fff",
-    fontSize: 13,
-  },
+  iconBtnText: { color: "#fff", fontSize: 18 },
   searchBox: { flexDirection: "row", gap: 10, marginBottom: 20 },
   input: {
     flex: 1,
@@ -370,12 +251,6 @@ const styles = StyleSheet.create({
   endMessage: { padding: 20, alignItems: "center" },
   endText: { color: "#555", fontSize: 14, fontStyle: "italic" },
 
-  navRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
   warningBanner: {
     backgroundColor: "#5c4300",
     borderWidth: 1,
@@ -390,60 +265,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
   },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  modalContent: {
-    backgroundColor: "#1E1E1E",
-    borderRadius: 14,
-    padding: 24,
-    width: "100%",
-    maxWidth: 340,
-    borderWidth: 0.5,
-    borderColor: "#333",
-  },
-  modalHeader: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
-  modalSubtext: {
-    color: "#aaa",
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 20,
-  },
-  modalInput: {
-    backgroundColor: "#101010",
-    color: "#fff",
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: "#333",
-    marginBottom: 20,
-  },
-  modalButtonsRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 12,
-  },
-  modalBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalCancelBtn: { backgroundColor: "transparent" },
-  modalCancelBtnText: { color: "#aaa", fontSize: 14, fontWeight: "600" },
-  modalSaveBtn: { backgroundColor: "#1DB954" },
-  modalSaveBtnText: { color: "#fff", fontSize: 14, fontWeight: "bold" },
 });

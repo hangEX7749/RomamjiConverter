@@ -1,75 +1,78 @@
-import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
   Alert,
   FlatList,
-  Modal, // Imported Modal for the settings UI
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { deleteSong, getSavedSongs } from "../utils/storage";
+import FolderPickerModal from "../components/FolderPickerModal";
+import NameInputModal from "../components/NameInputModal";
+import {
+  createFolder,
+  deleteFolder,
+  deleteSong,
+  getFolders,
+  getSavedSongs,
+  renameFolder,
+} from "../utils/storage";
 
-import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system/legacy";
-import * as Sharing from "expo-sharing";
-import { getAllSongs, getApiKey, saveApiKey, saveSong } from "../utils/storage"; // Imported API storage helpers
+type SavedSong = {
+  title: string;
+  artist: string;
+  lyrics: string;
+  romaji?: string;
+  syncedLyrics?: string | null;
+  duration?: number;
+  folders?: string[];
+};
+
+// Drives the create/rename name modal.
+type NameModalState =
+  | { mode: "create" }
+  | { mode: "rename"; target: string }
+  | null;
 
 export default function LibraryScreen() {
-  const [savedSongs, setSavedSongs] = useState<
-    Array<{ title: string; artist: string; lyrics: string; romaji?: string }>
-  >([]);
+  const [savedSongs, setSavedSongs] = useState<SavedSong[]>([]);
+  const [folders, setFolders] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [dropdownVisible, setDropdownVisible] = useState(false);
-
-  // New States for API Key management
-  const [apiKeyModalVisible, setApiKeyModalVisible] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [activeFolder, setActiveFolder] = useState<string | null>(null);
+  const [pickerSong, setPickerSong] = useState<SavedSong | null>(null);
+  const [nameModal, setNameModal] = useState<NameModalState>(null);
 
   const router = useRouter();
 
-  const loadSongs = async () => {
-    const songs = await getSavedSongs();
+  const loadData = useCallback(async () => {
+    const [songs, fldrs] = await Promise.all([getSavedSongs(), getFolders()]);
     setSavedSongs(songs);
-  };
-
-  // Fetch the existing API key when modal opens
-  const openApiKeySettings = async () => {
-    setDropdownVisible(false);
-    const savedKey = await getApiKey();
-    setApiKeyInput(savedKey || "");
-    setApiKeyModalVisible(true);
-  };
-
-  const handleSaveApiKey = async () => {
-    const trimmedKey = apiKeyInput.trim();
-    const success = await saveApiKey(trimmedKey);
-    if (success) {
-      Alert.alert(
-        "Success",
-        trimmedKey ? "API Key updated!" : "API Key cleared.",
-      );
-      setApiKeyModalVisible(false);
-    } else {
-      Alert.alert("Error", "Failed to save the API key.");
-    }
-  };
-
-  useEffect(() => {
-    loadSongs();
+    setFolders(fldrs);
   }, []);
+
+  // Reload on focus so imports made in Settings show up immediately.
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData]),
+  );
 
   const filteredSongs = savedSongs.filter((song) => {
     const query = searchQuery.toLowerCase();
-    return (
+    const matchesQuery =
       song.title.toLowerCase().includes(query) ||
-      song.artist.toLowerCase().includes(query)
-    );
+      song.artist.toLowerCase().includes(query);
+    const matchesFolder =
+      activeFolder === null ||
+      (Array.isArray(song.folders) && song.folders.includes(activeFolder));
+    return matchesQuery && matchesFolder;
   });
 
-  const confirmDelete = (title: any, artist: any) => {
+  const confirmDelete = (title: string, artist: string) => {
     Alert.alert("Delete Song", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
       {
@@ -77,113 +80,95 @@ export default function LibraryScreen() {
         style: "destructive",
         onPress: async () => {
           const updated = await deleteSong(title, artist);
-          setSavedSongs(updated);
+          setSavedSongs(updated || []);
         },
       },
     ]);
   };
 
-  const handleExport = async () => {
-    try {
-      const allSongs = await getAllSongs();
-      if (allSongs.length === 0) {
-        alert("No songs to export!");
+  // --- Folder management ---
+  const handleNameSubmit = async (value: string) => {
+    if (!nameModal) return;
+    if (nameModal.mode === "create") {
+      const status = await createFolder(value);
+      setNameModal(null);
+      if (status === "exists") {
+        Alert.alert("Folder exists", `A folder named "${value}" already exists.`);
+      }
+      await loadData();
+    } else {
+      const old = nameModal.target;
+      const status = await renameFolder(old, value);
+      setNameModal(null);
+      if (status === "exists") {
+        Alert.alert("Folder exists", `A folder named "${value}" already exists.`);
         return;
       }
-
-      const timestamp = new Date().getTime();
-      const fileUri =
-        FileSystem.documentDirectory + `lyrics_backup_${timestamp}.json`;
-      const jsonString = JSON.stringify(allSongs);
-
-      await FileSystem.writeAsStringAsync(fileUri, jsonString);
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri);
-      } else {
-        alert("Sharing is not available on this device.");
-      }
-    } catch (error) {
-      console.error("Export Error:", error);
-      alert("An error occurred during export.");
+      if (activeFolder === old) setActiveFolder(value);
+      await loadData();
     }
   };
 
-  const handleImport = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: "application/json",
-        copyToCacheDirectory: true,
-      });
-
-      if (result.canceled) return;
-
-      const selectedFileUri = result.assets[0].uri;
-      const fileContent = await FileSystem.readAsStringAsync(selectedFileUri);
-      const songsToImport = JSON.parse(fileContent);
-
-      for (const song of songsToImport) {
-        await saveSong(song);
-      }
-
-      await loadSongs();
-      alert(`Successfully imported ${songsToImport.length} songs!`);
-    } catch (error) {
-      console.error("Import Error:", error);
-      alert("Failed to import. Please ensure the file is a valid JSON backup.");
-    }
+  const manageFolder = (name: string) => {
+    Alert.alert(name, undefined, [
+      { text: "Rename", onPress: () => setNameModal({ mode: "rename", target: name }) },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () =>
+          Alert.alert(
+            "Delete folder?",
+            `"${name}" will be removed. Songs stay in your library.`,
+            [
+              { text: "Cancel", style: "cancel" },
+              {
+                text: "Delete",
+                style: "destructive",
+                onPress: async () => {
+                  await deleteFolder(name);
+                  if (activeFolder === name) setActiveFolder(null);
+                  await loadData();
+                },
+              },
+            ],
+          ),
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
   };
+
+  const renderChip = (
+    label: string,
+    active: boolean,
+    onPress: () => void,
+    onLongPress?: () => void,
+  ) => (
+    <TouchableOpacity
+      key={label}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      style={[styles.chip, active && styles.chipActive]}
+    >
+      <Text style={[styles.chipText, active && styles.chipTextActive]}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.container}>
-      {/* Navigation & Options Header Row */}
       <View style={styles.navRow}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
 
-        <View>
-          <TouchableOpacity
-            onPress={() => setDropdownVisible((v) => !v)}
-            style={styles.backupToggleBtn}
-          >
-            <Text style={styles.backupToggleText}>Options ▾</Text>
-          </TouchableOpacity>
-
-          {dropdownVisible && (
-            <View style={styles.dropdownMenu}>
-              <TouchableOpacity
-                onPress={openApiKeySettings}
-                style={styles.dropdownItem}
-              >
-                <Text style={styles.dropdownText}>🔑 Gemini API Key</Text>
-              </TouchableOpacity>
-              <View style={styles.dropdownDivider} />
-              <TouchableOpacity
-                onPress={() => {
-                  setDropdownVisible(false);
-                  handleExport();
-                }}
-                style={styles.dropdownItem}
-              >
-                <Text style={styles.dropdownText}>⬆ Export backup</Text>
-              </TouchableOpacity>
-              <View style={styles.dropdownDivider} />
-              <TouchableOpacity
-                onPress={() => {
-                  setDropdownVisible(false);
-                  handleImport();
-                }}
-                style={styles.dropdownItem}
-              >
-                <Text style={styles.dropdownText}>⬇ Import backup</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+        <TouchableOpacity
+          onPress={() => router.push("/settings")}
+          style={styles.iconBtn}
+          accessibilityLabel="Settings"
+        >
+          <Text style={styles.iconBtnText}>⚙</Text>
+        </TouchableOpacity>
       </View>
 
       <Text style={styles.header}>My Library</Text>
@@ -197,12 +182,37 @@ export default function LibraryScreen() {
         clearButtonMode="while-editing"
       />
 
+      {/* Folder filter chips */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chipsRow}
+        contentContainerStyle={styles.chipsContent}
+      >
+        {renderChip("All", activeFolder === null, () => setActiveFolder(null))}
+        {folders.map((name) =>
+          renderChip(
+            name,
+            activeFolder === name,
+            () => setActiveFolder(name),
+            () => manageFolder(name),
+          ),
+        )}
+        <TouchableOpacity
+          onPress={() => setNameModal({ mode: "create" })}
+          style={[styles.chip, styles.chipAdd]}
+          accessibilityLabel="New folder"
+        >
+          <Ionicons name="add" size={18} color="#1DB954" />
+        </TouchableOpacity>
+      </ScrollView>
+
       <FlatList
         data={filteredSongs}
         keyExtractor={(item) => item.title + item.artist}
         ListEmptyComponent={
           <Text style={styles.emptyText}>
-            {searchQuery
+            {searchQuery || activeFolder !== null
               ? "No matching songs found."
               : "Your library is empty."}
           </Text>
@@ -219,12 +229,21 @@ export default function LibraryScreen() {
                     title: item.title,
                     lyrics: item.lyrics,
                     preComputedRomaji: item.romaji,
+                    syncedLyrics: item.syncedLyrics || null,
+                    duration: item.duration || 0,
                   },
                 })
               }
             >
               <Text style={styles.title}>{item.title}</Text>
               <Text style={styles.artist}>{item.artist}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setPickerSong(item)}
+              style={styles.folderBtn}
+              accessibilityLabel="Add to folders"
+            >
+              <Ionicons name="folder-outline" size={20} color="#1DB954" />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => confirmDelete(item.title, item.artist)}
@@ -235,50 +254,27 @@ export default function LibraryScreen() {
         )}
       />
 
-      {/* --- API KEY MANAGEMENT MODAL --- */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={apiKeyModalVisible}
-        onRequestClose={() => setApiKeyModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalHeader}>Gemini API Key Settings</Text>
-            <Text style={styles.modalSubtext}>
-              Insert your personal Gemini API key here. Leave it blank and save
-              to delete/remove it.
-            </Text>
+      {pickerSong && (
+        <FolderPickerModal
+          visible={!!pickerSong}
+          title={pickerSong.title}
+          artist={pickerSong.artist}
+          onClose={(changed) => {
+            setPickerSong(null);
+            if (changed) loadData();
+          }}
+        />
+      )}
 
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Paste your AIzaSy... key here"
-              placeholderTextColor="#555"
-              value={apiKeyInput}
-              onChangeText={setApiKeyInput}
-              secureTextEntry={true} // Obscures key text for privacy
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-
-            <View style={styles.modalButtonsRow}>
-              <TouchableOpacity
-                onPress={() => setApiKeyModalVisible(false)}
-                style={[styles.modalBtn, styles.modalCancelBtn]}
-              >
-                <Text style={styles.modalCancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleSaveApiKey}
-                style={[styles.modalBtn, styles.modalSaveBtn]}
-              >
-                <Text style={styles.modalSaveBtnText}>Save Key</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <NameInputModal
+        visible={nameModal !== null}
+        title={nameModal?.mode === "rename" ? "Rename folder" : "New folder"}
+        placeholder="Folder name"
+        initialValue={nameModal?.mode === "rename" ? nameModal.target : ""}
+        confirmLabel={nameModal?.mode === "rename" ? "Rename" : "Create"}
+        onCancel={() => setNameModal(null)}
+        onSubmit={handleNameSubmit}
+      />
     </View>
   );
 }
@@ -298,9 +294,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 10,
     fontSize: 16,
-    marginBottom: 20,
+    marginBottom: 14,
     borderWidth: 0.5,
     borderColor: "#333",
+  },
+  chipsRow: { marginBottom: 16, flexGrow: 0 },
+  chipsContent: { alignItems: "center", paddingRight: 10 },
+  chip: {
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#333",
+    backgroundColor: "#1E1E1E",
+    marginRight: 8,
+  },
+  chipActive: { backgroundColor: "#1DB954", borderColor: "#1DB954" },
+  chipText: { color: "#ccc", fontSize: 13, fontWeight: "600" },
+  chipTextActive: { color: "#fff" },
+  chipAdd: {
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    borderColor: "#1DB954",
   },
   emptyText: {
     color: "#666",
@@ -309,11 +325,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   backButton: {
-    backgroundColor: "#0F0F0F",
+    backgroundColor: "#1E1E1E",
     paddingVertical: 8,
     paddingHorizontal: 15,
     borderRadius: 8,
-    alignSelf: "flex-end",
   },
   backText: { color: "#1DB954", fontSize: 14, fontWeight: "bold" },
   item: {
@@ -326,122 +341,23 @@ const styles = StyleSheet.create({
   },
   title: { color: "#fff", fontSize: 16, fontWeight: "bold" },
   artist: { color: "#888", fontSize: 14 },
-  deleteText: { color: "#ff4444", fontWeight: "bold", marginLeft: 10 },
+  folderBtn: { paddingHorizontal: 10 },
+  deleteText: { color: "#ff4444", fontWeight: "bold", marginLeft: 4 },
   navRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
   },
-  backupToggleBtn: {
+  iconBtn: {
     backgroundColor: "#1E1E1E",
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 0.5,
     borderColor: "#444",
   },
-  backupToggleText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  dropdownMenu: {
-    position: "absolute",
-    right: 0,
-    top: 40,
-    backgroundColor: "#1E1E1E",
-    borderRadius: 10,
-    borderWidth: 0.5,
-    borderColor: "#333",
-    minWidth: 170,
-    zIndex: 999,
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-  },
-  dropdownItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  dropdownText: {
-    color: "#fff",
-    fontSize: 14,
-  },
-  dropdownDivider: {
-    height: 0.5,
-    backgroundColor: "#333",
-    marginHorizontal: 12,
-  },
-
-  // --- New Styling for the Settings Modal ---
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  modalContent: {
-    backgroundColor: "#1E1E1E",
-    borderRadius: 14,
-    padding: 24,
-    width: "100%",
-    maxWidth: 340,
-    borderWidth: 0.5,
-    borderColor: "#333",
-  },
-  modalHeader: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
-  modalSubtext: {
-    color: "#aaa",
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 20,
-  },
-  modalInput: {
-    backgroundColor: "#101010",
-    color: "#fff",
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: "#333",
-    marginBottom: 20,
-  },
-  modalButtonsRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 12,
-  },
-  modalBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalCancelBtn: {
-    backgroundColor: "transparent",
-  },
-  modalCancelBtnText: {
-    color: "#aaa",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  modalSaveBtn: {
-    backgroundColor: "#1DB954",
-  },
-  modalSaveBtnText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "bold",
-  },
+  iconBtnText: { color: "#fff", fontSize: 18 },
 });
