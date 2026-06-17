@@ -17,7 +17,7 @@ import {
 import RomajiFyLogo from "../components/RomajiFyLogo";
 import { searchTracks } from "../services/lyricsApi";
 import { recognizeMusic } from "../services/shazamApi";
-import { getApiKey, getRapidApiKey } from "../utils/storage";
+import { getApiKey, getRapidApiKey, getRecordingDuration } from "../utils/storage";
 
 type TrackResult = {
   romanizedLyrics: null;
@@ -101,6 +101,7 @@ export default function SearchScreen() {
   } | null>(null);
 
   const timerRef = useRef<any>(null);
+  const activeRecordingDurationRef = useRef(7);
   const router = useRouter();
 
   // Initialize recorder
@@ -196,18 +197,21 @@ export default function SearchScreen() {
         return;
       }
 
+      const duration = await getRecordingDuration();
+      activeRecordingDurationRef.current = duration;
+
       setRecognitionResult(null);
       await recorder.prepareToRecordAsync();
       recorder.record();
 
       setIsRecording(true);
-      setRecordingTimeLeft(3);
+      setRecordingTimeLeft(duration);
 
       const countdownInterval = setInterval(() => {
         setRecordingTimeLeft((prev) => {
           if (prev <= 1) {
             clearInterval(countdownInterval);
-            // Stop recording when 3 seconds are up
+            // Stop recording when dynamic duration is up
             setTimeout(() => {
               stopRecordingAndIdentify();
             }, 50);
@@ -321,7 +325,7 @@ export default function SearchScreen() {
           // Add the 3s recording duration plus the dynamic network latency to the offset.
           const topMatch = data[0];
           const networkDelay = (Date.now() - recordingStoppedTime) / 1000;
-          const adjustedStartTime = (response.offset || 0) + networkDelay + 3.0;
+          const adjustedStartTime = (response.offset || 0) + networkDelay + activeRecordingDurationRef.current;
 
           router.push({
             pathname: "/lyric",
@@ -338,7 +342,7 @@ export default function SearchScreen() {
           });
         } else {
           const networkDelay = (Date.now() - recordingStoppedTime) / 1000;
-          const totalDelay = networkDelay + 3.0;
+          const totalDelay = networkDelay + activeRecordingDurationRef.current;
           Alert.alert(
             "Song Identified",
             `Found: "${response.title}" by ${response.artist}\nOffset: ${response.offset ? response.offset.toFixed(2) : "0"}s (+${totalDelay.toFixed(1)}s delay applied)\nTimeskew: ${response.timeskew ? response.timeskew.toFixed(5) : "0"}\n\nCould not find matching lyrics in the database.`,

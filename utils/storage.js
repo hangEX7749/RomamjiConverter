@@ -76,6 +76,30 @@ export const getRapidApiKey = async () => {
   }
 };
 
+const RECORDING_DURATION_KEY = "@shazam_recording_duration";
+
+// Save Shazam recording duration to the device (in seconds)
+export const saveRecordingDuration = async (duration) => {
+  try {
+    await AsyncStorage.setItem(RECORDING_DURATION_KEY, String(duration));
+    return true;
+  } catch (e) {
+    console.error("Error saving recording duration", e);
+    return false;
+  }
+};
+
+// Retrieve Shazam recording duration from the device (defaults to 7s)
+export const getRecordingDuration = async () => {
+  try {
+    const val = await AsyncStorage.getItem(RECORDING_DURATION_KEY);
+    return val ? parseInt(val, 10) : 7; // Default to 7s
+  } catch (e) {
+    console.error("Error fetching recording duration", e);
+    return 7;
+  }
+};
+
 export const saveSong = async (songData) => {
   try {
     const existing = await AsyncStorage.getItem(STORAGE_KEY);
