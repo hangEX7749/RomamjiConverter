@@ -27,9 +27,11 @@ import {
   getApiKey,
   getFontPrefs,
   getRapidApiKey,
+  getRecordingDuration,
   saveApiKey,
   saveFontPrefs,
   saveRapidApiKey,
+  saveRecordingDuration,
   saveSong,
 } from "../utils/storage";
 
@@ -80,6 +82,9 @@ export default function SettingsScreen() {
   const [rapidApiKeyInput, setRapidApiKeyInput] = useState("");
   const [hasRapidKey, setHasRapidKey] = useState(false);
 
+  // --- Shazam duration state ---
+  const [shazamDuration, setShazamDuration] = useState(7);
+
   // --- Font prefs state ---
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_PREFS.fontSize);
   const [fontFamily, setFontFamily] = useState(DEFAULT_FONT_PREFS.fontFamily);
@@ -107,12 +112,18 @@ export default function SettingsScreen() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [key, rapidKey, prefs] = await Promise.all([getApiKey(), getRapidApiKey(), getFontPrefs()]);
+      const [key, rapidKey, prefs, duration] = await Promise.all([
+        getApiKey(),
+        getRapidApiKey(),
+        getFontPrefs(),
+        getRecordingDuration(),
+      ]);
       if (cancelled) return;
       setApiKeyInput(key || "");
       setHasKey(!!key);
       setRapidApiKeyInput(rapidKey || "");
       setHasRapidKey(!!rapidKey);
+      setShazamDuration(duration);
       setFontSize(prefs.fontSize);
       setFontFamily(prefs.fontFamily);
       setLineHeight(prefs.lineHeight);
@@ -136,6 +147,12 @@ export default function SettingsScreen() {
     if (!loaded) return;
     saveFontPrefs({ fontSize, fontFamily, lineHeight, autoScroll, highlightColor });
   }, [fontSize, fontFamily, lineHeight, autoScroll, highlightColor, loaded]);
+
+  // Persist shazam duration on change
+  useEffect(() => {
+    if (!loaded) return;
+    saveRecordingDuration(shazamDuration);
+  }, [shazamDuration, loaded]);
 
   // --- API key handlers ---
   const handleSaveKey = async () => {
@@ -396,6 +413,42 @@ export default function SettingsScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Divider */}
+          <View style={{ height: 1, backgroundColor: "#2A2A2A", marginVertical: 16 }} />
+
+          {/* Shazam Recording Duration */}
+          <Text style={[styles.label, { marginTop: 0 }]}>Recording Duration</Text>
+
+          <View style={[styles.row, { gap: 10, marginTop: 8 }]}>
+            {[
+              { label: "4s", value: 4 },
+              { label: "7s", value: 7 },
+              { label: "10s", value: 10 },
+            ].map((opt) => {
+              const active = opt.value === shazamDuration;
+              return (
+                <TouchableOpacity
+                  key={opt.value}
+                  onPress={() => setShazamDuration(opt.value)}
+                  style={[
+                    styles.durationPill,
+                    active && styles.durationPillActive,
+                    { flex: 1 },
+                  ]}
+                >
+                  <Text style={[styles.durationPillText, active && styles.durationPillTextActive]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={styles.durationHint}>
+            {shazamDuration === 4 && "⚡ Fast matching: ideal for quiet rooms with clear, close music sources."}
+            {shazamDuration === 7 && "✓ Recommended: optimal blend of matching accuracy and waiting time."}
+            {shazamDuration === 10 && "🎤 Karaoke / Noisy mode: For places with loud background noise or live singing."}
+          </Text>
         </View>
 
         {/* === Lyric Font === */}
@@ -776,5 +829,34 @@ const styles = StyleSheet.create({
   },
   colorCircleActive: {
     borderColor: "#fff",
+  },
+  durationPill: {
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#333",
+    backgroundColor: "#101010",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  durationPillActive: {
+    backgroundColor: "#1DB954",
+    borderColor: "#1DB954",
+  },
+  durationPillText: {
+    color: "#ccc",
+    fontSize: 12,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  durationPillTextActive: {
+    color: "#fff",
+  },
+  durationHint: {
+    color: "#888",
+    fontSize: 12,
+    fontStyle: "italic",
+    marginTop: 10,
+    lineHeight: 16,
   },
 });
