@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { useKeepAwake } from "expo-keep-awake";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
@@ -324,6 +325,7 @@ export default function SyncedLyricsPlayer({
   autoScroll = true,
   initialTime = 0,
 }: SyncedLyricsPlayerProps) {
+  useKeepAwake();
   const highlightColor = lyricStyle?.highlightColor || "#FFFFFF";
   const [isPlaying, setIsPlaying] = useState(initialTime > 0);
   const [currentTime, setCurrentTime] = useState(initialTime);
