@@ -24,10 +24,15 @@ export const recognizeMusic = async (audioUri) => {
 
   const uriNoQuery = String(audioUri).split("?")[0];
   const dot = uriNoQuery.lastIndexOf(".");
-  const ext = dot !== -1 ? uriNoQuery.slice(dot + 1).toLowerCase() : "";
+  let ext = dot !== -1 ? uriNoQuery.slice(dot + 1).toLowerCase() : "";
+
+  // Fallback to m4a if file extension is missing or invalid (e.g. hash)
+  if (!ext || ext.length > 4) {
+    ext = "m4a";
+  }
 
   const mimeType =
-    ext === "m4a" || ext === "mp4" ? "audio/mp4" :
+    ext === "m4a" || ext === "mp4" ? "audio/x-m4a" :
     ext === "mp3" ? "audio/mpeg" :
     ext === "wav" ? "audio/wav" :
     ext === "ogg" || ext === "opus" ? "audio/ogg" :
@@ -38,7 +43,7 @@ export const recognizeMusic = async (audioUri) => {
   data.append("upload_file", {
     uri: audioUri,
     type: mimeType,
-    name: `recording${ext ? `.${ext}` : ""}`,
+    name: `recording.${ext}`,
   });
 
   const options = {

@@ -4,6 +4,7 @@ import { useKeepAwake } from "expo-keep-awake";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
+  DimensionValue,
   PanResponder,
   Platform,
   ScrollView,
@@ -37,42 +38,25 @@ const IntroCountdown = React.memo(({
   isScrubbing: boolean;
   highlightColor: string;
 }) => {
-  const progressAnim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (isActive && duration > 0) {
-      const progress = Math.max(0, Math.min(1, currentTime / duration));
-      const remaining = 1 - progress;
-      const diff = Math.abs(remaining - (progressAnim as any)._value);
-      if (diff > 0.15) {
-        progressAnim.setValue(remaining);
-      } else {
-        Animated.timing(progressAnim, {
-          toValue: remaining,
-          duration: 100,
-          useNativeDriver: false,
-        }).start();
-      }
-    } else {
-      progressAnim.setValue(isActive ? 1 : 0);
-    }
-  }, [currentTime, isActive, duration]);
-
-  const widthInterpolate = progressAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0%", "100%"],
-  });
+  let progressWidth: DimensionValue = "0%";
+  if (isActive && duration > 0) {
+    const progress = Math.max(0, Math.min(1, currentTime / duration));
+    const remaining = 1 - progress;
+    progressWidth = `${remaining * 100}%`;
+  } else if (isActive) {
+    progressWidth = "100%";
+  }
 
   return (
     <TouchableOpacity activeOpacity={0.7} onPress={() => onPress(0)} disabled={!isActive}>
       <View style={styles.lyricLineContainer}>
         {/* Loading bar container */}
         <View style={[styles.intervalBarContainer, { opacity: isActive ? 1 : 0 }]}>
-          <Animated.View
+          <View
             style={[
               styles.intervalBarFill,
               {
-                width: widthInterpolate,
+                width: progressWidth,
                 backgroundColor: highlightColor,
               },
             ]}
@@ -115,7 +99,6 @@ const LyricLine = React.memo(({
   };
 
   const animValue = useRef(new Animated.Value(getInitialValue())).current;
-  const progressAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     let toValue = 0;
@@ -134,25 +117,6 @@ const LyricLine = React.memo(({
     }).start();
   }, [isActive, isPast, isScrubbing]);
 
-  useEffect(() => {
-    if (isEmojiInterval && isActive && duration && duration > 0 && currentTime !== undefined) {
-      const progress = Math.max(0, Math.min(1, (currentTime + 0.3 - time) / duration));
-      const remaining = 1 - progress;
-      const diff = Math.abs(remaining - (progressAnim as any)._value);
-      if (diff > 0.15) {
-        progressAnim.setValue(remaining);
-      } else {
-        Animated.timing(progressAnim, {
-          toValue: remaining,
-          duration: 100,
-          useNativeDriver: false,
-        }).start();
-      }
-    } else {
-      progressAnim.setValue(isActive ? 1 : 0);
-    }
-  }, [currentTime, isActive, isEmojiInterval, time, duration]);
-
   const textOpacity = animValue.interpolate({
     inputRange: [0, 1, 2],
     outputRange: [0.4, 1.0, 0.15], // Map states to standard text opacities
@@ -163,10 +127,14 @@ const LyricLine = React.memo(({
     outputRange: [0, 1, 0], // Translucent glow visible only in active state
   });
 
-  const widthInterpolate = progressAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0%", "100%"],
-  });
+  let progressWidth: DimensionValue = "0%";
+  if (isEmojiInterval && isActive && duration && duration > 0 && currentTime !== undefined) {
+    const progress = Math.max(0, Math.min(1, (currentTime + 0.3 - time) / duration));
+    const remaining = 1 - progress;
+    progressWidth = `${remaining * 100}%`;
+  } else if (isActive) {
+    progressWidth = "100%";
+  }
 
   return (
     <TouchableOpacity activeOpacity={0.7} onPress={() => onPress(time)}>
@@ -196,11 +164,11 @@ const LyricLine = React.memo(({
         {/* Emoji Interval countdown loading bar */}
         {isEmojiInterval && (
           <View style={[styles.intervalBarContainer, { opacity: isActive ? 1 : 0 }]}>
-            <Animated.View
+            <View
               style={[
                 styles.intervalBarFill,
                 {
-                  width: widthInterpolate,
+                  width: progressWidth,
                   backgroundColor: highlightColor || "#FFFFFF",
                 },
               ]}
