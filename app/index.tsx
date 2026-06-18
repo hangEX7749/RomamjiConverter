@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { getRecordingPermissionsAsync, RecordingPresets, requestRecordingPermissionsAsync, useAudioRecorder } from "expo-audio";
+import { getRecordingPermissionsAsync, RecordingPresets, requestRecordingPermissionsAsync, useAudioRecorder, IOSOutputFormat, AudioQuality } from "expo-audio";
 import * as FileSystem from "expo-file-system/legacy";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -104,8 +104,33 @@ export default function SearchScreen() {
   const activeRecordingDurationRef = useRef(7);
   const router = useRouter();
 
-  // Initialize recorder
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  // Initialize recorder with WAV on iOS for maximum server decoder compatibility
+  const recorder = useAudioRecorder({
+    extension: ".wav",
+    sampleRate: 16000,
+    numberOfChannels: 1,
+    bitRate: 128000,
+    android: {
+      extension: ".m4a",
+      outputFormat: "mpeg4",
+      audioEncoder: "aac",
+      sampleRate: 16000,
+    },
+    ios: {
+      extension: ".wav",
+      outputFormat: IOSOutputFormat.LINEARPCM,
+      audioQuality: AudioQuality.MAX,
+      linearPCMBitDepth: 16,
+      linearPCMIsBigEndian: false,
+      linearPCMIsFloat: false,
+      sampleRate: 16000,
+    },
+    web: {
+      mimeType: "audio/webm",
+      bitsPerSecond: 128000,
+    },
+  });
+
 
   // Re-check the key whenever the screen regains focus, so the banner clears
   // immediately after the user saves a key in Settings.
